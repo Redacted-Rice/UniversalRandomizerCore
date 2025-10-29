@@ -7,12 +7,22 @@ local List = {}
 List.__index = List
 
 -- Constructor
-function List.new(items)
+-- items: table of items
+-- options: optional table with {consumable = bool, regenerate = bool}
+--   consumable: if true, items are removed after being selected
+--   regenerate: if true and consumable, regenerate pool when empty; if false, error when empty
+function List.new(items, options)
     assert(type(items) == "table", "Expected table, got " .. type(items))
 
     local self = setmetatable({}, List)
     self._type = "List"
+    self.originalItems = utils.deepCopy(items)  -- Keep original for regeneration
     self.items = utils.deepCopy(items)
+
+    -- Parse options
+    options = options or {}
+    self.consumable = options.consumable or false
+    self.regenerate = options.regenerate or false
 
     return self
 end
@@ -88,18 +98,28 @@ end
 -- Optional setter: function(item, value) to set value on item, or string field name
 function List:randomize(targetList, setter)
     assert(type(targetList) == "table", "Expected table, got " .. type(targetList))
-    assert(#self.items > 0, "Cannot randomize from empty list")
+
+    -- Check for empty list
+    if #self.items == 0 then
+        if self.consumable and self.regenerate then
+            self:_regenerate()
+        else
+            error("Cannot randomize from empty list")
+        end
+    end
 
     if setter then
         -- Setter can be a field name (string) or a function
         if type(setter) == "string" then
             local fieldName = setter
             for i = 1, #targetList do
-                targetList[i][fieldName] = utils.randomElement(self.items)
+                local value = self:_selectItem()
+                targetList[i][fieldName] = value
             end
         elseif type(setter) == "function" then
             for i = 1, #targetList do
-                setter(targetList[i], utils.randomElement(self.items), i)
+                local value = self:_selectItem()
+                setter(targetList[i], value, i)
             end
         else
             error("Setter must be a string (field name) or function, got " .. type(setter))
@@ -107,11 +127,38 @@ function List:randomize(targetList, setter)
     else
         -- Original behavior: replace array elements directly
         for i = 1, #targetList do
-            targetList[i] = utils.randomElement(self.items)
+            local value = self:_selectItem()
+            targetList[i] = value
         end
     end
 
     return targetList
+end
+
+-- Internal method to select an item (and consume if needed)
+function List:_selectItem()
+    if #self.items == 0 then
+        if self.consumable and self.regenerate then
+            self:_regenerate()
+        else
+            error("Cannot select from empty list")
+        end
+    end
+
+    if self.consumable then
+        -- Pick a random index and remove it
+        local index = math.random(1, #self.items)
+        local value = table.remove(self.items, index)
+        return value
+    else
+        -- Non-consumable: just pick random element
+        return utils.randomElement(self.items)
+    end
+end
+
+-- Internal method to regenerate the pool
+function List:_regenerate()
+    self.items = utils.deepCopy(self.originalItems)
 end
 
 -- Convert back to plain table
@@ -122,6 +169,30 @@ end
 -- Get the number of items in the list
 function List:size()
     return #self.items
+end
+
+-- Get the number of remaining items (useful for consumable lists)
+function List:remaining()
+    return #self.items
+end
+
+-- Check if this list is consumable
+function List:isConsumable()
+    return self.consumable
+end
+
+-- Check if this list will regenerate when empty
+function List:willRegenerate()
+    return self.regenerate
+end
+
+-- Manually regenerate the pool (reset to original items)
+function List:regenerate()
+    if not self.consumable then
+        error("Cannot regenerate non-consumable list")
+    end
+    self:_regenerate()
+    return self
 end
 
 -- Check if list is empty

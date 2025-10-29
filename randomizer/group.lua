@@ -9,19 +9,24 @@ Group.__index = Group
 
 -- Constructor
 -- listsMap: table of {key = list/table}
-function Group.new(listsMap)
+-- options: optional table with {consumable = bool, regenerate = bool}
+--   consumable: if true, items are removed after being selected from pools
+--   regenerate: if true and consumable, regenerate pools when empty; if false, error when empty
+function Group.new(listsMap, options)
     assert(type(listsMap) == "table", "Expected table, got " .. type(listsMap))
 
     local self = setmetatable({}, Group)
     self._type = "Group"
     self.lists = {}
 
+    options = options or {}
+
     -- Convert plain tables to List objects and store
     for key, list in pairs(listsMap) do
         if utils.isList(list) then
             self.lists[key] = list
         elseif type(list) == "table" then
-            self.lists[key] = List.new(list)
+            self.lists[key] = List.new(list, options)
         else
             error("Expected List or table for key '" .. tostring(key) .. "', got " .. type(list))
         end
@@ -156,11 +161,9 @@ function Group:randomize(targetList, selectorFn, setter)
                     error("No list found for key '" .. tostring(key) .. "' at index " .. i)
                 end
 
-                if list:isEmpty() then
-                    error("List for key '" .. tostring(key) .. "' is empty")
-                end
-
-                targetList[i][fieldName] = utils.randomElement(list.items)
+                -- Use List's _selectItem method which handles consumable/regeneration
+                local value = list:_selectItem()
+                targetList[i][fieldName] = value
             end
         elseif type(setter) == "function" then
             for i, item in ipairs(targetList) do
@@ -171,11 +174,9 @@ function Group:randomize(targetList, selectorFn, setter)
                     error("No list found for key '" .. tostring(key) .. "' at index " .. i)
                 end
 
-                if list:isEmpty() then
-                    error("List for key '" .. tostring(key) .. "' is empty")
-                end
-
-                setter(targetList[i], utils.randomElement(list.items), i)
+                -- Use List's _selectItem method which handles consumable/regeneration
+                local value = list:_selectItem()
+                setter(targetList[i], value, i)
             end
         else
             error("Setter must be a string (field name) or function, got " .. type(setter))
@@ -190,11 +191,9 @@ function Group:randomize(targetList, selectorFn, setter)
                 error("No list found for key '" .. tostring(key) .. "' at index " .. i)
             end
 
-            if list:isEmpty() then
-                error("List for key '" .. tostring(key) .. "' is empty")
-            end
-
-            targetList[i] = utils.randomElement(list.items)
+            -- Use List's _selectItem method which handles consumable/regeneration
+            local value = list:_selectItem()
+            targetList[i] = value
         end
     end
 
@@ -222,6 +221,25 @@ end
 -- Check if group is empty
 function Group:isEmpty()
     return self:size() == 0
+end
+
+-- Get remaining items for a specific key (useful for consumable lists)
+function Group:remaining(key)
+    local list = self.lists[key]
+    if not list then
+        return nil
+    end
+    return list:remaining()
+end
+
+-- Manually regenerate all pools (reset to original items)
+function Group:regenerate()
+    for key, list in pairs(self.lists) do
+        if list:isConsumable() then
+            list:regenerate()
+        end
+    end
+    return self
 end
 
 -- String representation for debugging
