@@ -144,12 +144,60 @@ describe("List Module", function()
             end
         end)
 
+        it("should randomize object field with string setter", function()
+            randomizer.setSeed(99)
+            local objects = {
+                {id = 1, name = "old1"},
+                {id = 2, name = "old2"},
+                {id = 3, name = "old3"}
+            }
+            local pool = randomizer.list({"new1", "new2", "new3"})
+
+            pool:randomize(objects, "name")
+
+            -- All names should be from the pool
+            for _, obj in ipairs(objects) do
+                assert.is_true(obj.name == "new1" or obj.name == "new2" or obj.name == "new3")
+                -- ID should be unchanged
+                assert.is_number(obj.id)
+            end
+        end)
+
+        it("should randomize with custom setter function", function()
+            randomizer.setSeed(123)
+            local objects = {
+                {value = 10, double = 20},
+                {value = 20, double = 40}
+            }
+            local pool = randomizer.list({5, 10, 15})
+
+            pool:randomize(objects, function(obj, val, idx)
+                obj.value = val
+                obj.double = val * 2
+            end)
+
+            -- Check values and doubles are consistent
+            for _, obj in ipairs(objects) do
+                assert.are.equal(obj.value * 2, obj.double)
+                assert.is_true(obj.value == 5 or obj.value == 10 or obj.value == 15)
+            end
+        end)
+
         it("should error when randomizing from empty list", function()
             local list = randomizer.list({})
             local target = {1, 2, 3}
 
             assert.has_error(function()
                 list:randomize(target)
+            end)
+        end)
+
+        it("should error when setter is invalid type", function()
+            local list = randomizer.list({1, 2, 3})
+            local objects = {{value = 0}, {value = 0}}
+
+            assert.has_error(function()
+                list:randomize(objects, 42)  -- Number instead of string/function
             end)
         end)
     end)

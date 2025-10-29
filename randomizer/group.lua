@@ -139,23 +139,63 @@ end
 -- selectorFn: function(item, index) -> key
 -- Modifies targetList in place
 -- Returns the modified targetList for convenience
-function Group:randomize(targetList, selectorFn)
+-- Optional setter: function(item, value, index) to set value on item, or string field name
+function Group:randomize(targetList, selectorFn, setter)
     assert(type(targetList) == "table", "Expected table, got " .. type(targetList))
     assert(type(selectorFn) == "function", "Expected function, got " .. type(selectorFn))
 
-    for i, item in ipairs(targetList) do
-        local key = selectorFn(item, i)
-        local list = self.lists[key]
+    if setter then
+        -- Setter can be a field name (string) or a function
+        if type(setter) == "string" then
+            local fieldName = setter
+            for i, item in ipairs(targetList) do
+                local key = selectorFn(item, i)
+                local list = self.lists[key]
 
-        if not list then
-            error("No list found for key '" .. tostring(key) .. "' at index " .. i)
+                if not list then
+                    error("No list found for key '" .. tostring(key) .. "' at index " .. i)
+                end
+
+                if list:isEmpty() then
+                    error("List for key '" .. tostring(key) .. "' is empty")
+                end
+
+                targetList[i][fieldName] = utils.randomElement(list.items)
+            end
+        elseif type(setter) == "function" then
+            for i, item in ipairs(targetList) do
+                local key = selectorFn(item, i)
+                local list = self.lists[key]
+
+                if not list then
+                    error("No list found for key '" .. tostring(key) .. "' at index " .. i)
+                end
+
+                if list:isEmpty() then
+                    error("List for key '" .. tostring(key) .. "' is empty")
+                end
+
+                setter(targetList[i], utils.randomElement(list.items), i)
+            end
+        else
+            error("Setter must be a string (field name) or function, got " .. type(setter))
         end
+    else
+        -- Original behavior: replace array elements directly
+        for i, item in ipairs(targetList) do
+            local key = selectorFn(item, i)
+            local list = self.lists[key]
 
-        if list:isEmpty() then
-            error("List for key '" .. tostring(key) .. "' is empty")
+            if not list then
+                error("No list found for key '" .. tostring(key) .. "' at index " .. i)
+            end
+
+            if list:isEmpty() then
+                error("List for key '" .. tostring(key) .. "' is empty")
+            end
+
+            targetList[i] = utils.randomElement(list.items)
         end
-
-        targetList[i] = utils.randomElement(list.items)
     end
 
     return targetList

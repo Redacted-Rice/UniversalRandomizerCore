@@ -22,9 +22,10 @@ Simply copy the `randomizer/` directory to your project and require it:
 ```lua
 local randomizer = require("randomizer")
 ```
+
 ## Quick Start
 
-### Simple List Randomization
+### Simple List Randomization without In-Place Field Updates
 
 ```lua
 local randomizer = require("randomizer")
@@ -39,14 +40,14 @@ pool:randomize(items)
 print(table.concat(items, ", "))  -- e.g., "Banana, Apple, Cherry"
 ```
 
-### Grouped Randomization
+### Grouped Randomization with In-Place Field Updates
 
 ```lua
 -- Define weapons with types
 local weapons = {
-    {name = "sword_001", type = "melee"},
-    {name = "bow_001", type = "ranged"},
-    {name = "axe_001", type = "melee"}
+    {name = "sword_001", type = "melee", damage = 10},
+    {name = "bow_001", type = "ranged", damage = 8},
+    {name = "axe_001", type = "melee", damage = 12}
 }
 
 -- Create separate pools for each weapon type
@@ -55,18 +56,21 @@ local weaponPools = randomizer.group({
     ranged = {"Bow", "Crossbow", "Rifle", "Pistol"}
 })
 
--- Extract weapon names
-local names = {}
-for i, weapon in ipairs(weapons) do
-    names[i] = weapon.name
-end
+-- Randomize the 'name' field directly on weapon objects
+weaponPools:randomize(weapons, function(weapon)
+    return weapon.type
+end, "name")  -- "name" is the field to update
 
--- Randomize using weapon type as selector
-weaponPools:randomize(names, function(name, index)
-    return weapons[index].type
+-- Each weapon.name is now updated in place based on weapon.type
+-- Other fields (damage, type) remain unchanged
+
+-- Or use a custom setter function for complex updates:
+weaponPools:randomize(weapons, function(weapon)
+    return weapon.type
+end, function(weapon, newName, index)
+    weapon.name = newName
+    weapon.renamed = true
 end)
-
--- Each weapon is now replaced with a random weapon of the same type
 ```
 
 ### Chainable Operations
@@ -91,6 +95,7 @@ Run the examples:
 ```bash
 lua example.lua
 ```
+
 ## Testing
 
 The library uses [Busted](https://olivinelabs.com/busted/) for testing.
@@ -128,10 +133,10 @@ busted spec/group_spec.lua
 The test suite includes tests organized by module:
 
 **Unit Tests**:
-- `spec/list_spec.lua` - List class tests
-- `spec/group_spec.lua` - Group class tests
-- `spec/utils_spec.lua` - Utility functions tests
-- `spec/init_spec.lua` - Standalone functions tests
+- `spec/list_spec.lua` - List class tests 
+- `spec/group_spec.lua` - Group class tests 
+- `spec/utils_spec.lua` - Utility functions tests 
+- `spec/init_spec.lua` - Standalone functions tests 
 
 These unit tests cover:
 - Individual method testing
@@ -199,7 +204,7 @@ MIT License - Feel free to use in your projects!
 
 ## Version
 
-0.7.0
+0.8.0
 
 
 
