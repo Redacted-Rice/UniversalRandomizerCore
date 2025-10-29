@@ -1,0 +1,29 @@
+-- LuaCov configuration
+-- Only report coverage for project files, exclude dependencies
+
+return {
+  -- Only include files in the randomizer/ directory
+  include = {
+    "randomizer"
+  },
+
+  -- Exclude everything else
+  exclude = {
+    "spec",  -- Don't include test files in coverage
+    "luarocks",
+    "busted",
+    "AppData",
+    "C:",
+    "%.lua$"  -- Exclude files not in our include list
+  },
+
+  -- Report settings
+  reporter = "default",
+
+  -- Stats file location
+  statsfile = "luacov.stats.out",
+
+  -- Report file location
+  reportfile = "luacov.report.out",
+}
+

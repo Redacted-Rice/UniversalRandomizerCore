@@ -1,0 +1,15 @@
+return {
+  _all = {
+    lua = "lua"
+  },
+  default = {
+    verbose = true,
+    coverage = false,
+    ROOT = {"spec"},
+    pattern = "_spec",
+    output = "plainTerminal"
+  }
+}
+
+
+
