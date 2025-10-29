@@ -85,12 +85,30 @@ end
 -- Randomize a target list by replacing each item with a random value from this list
 -- Modifies targetList in place
 -- Returns the modified targetList for convenience
-function List:randomize(targetList)
+-- Optional setter: function(item, value) to set value on item, or string field name
+function List:randomize(targetList, setter)
     assert(type(targetList) == "table", "Expected table, got " .. type(targetList))
     assert(#self.items > 0, "Cannot randomize from empty list")
 
-    for i = 1, #targetList do
-        targetList[i] = utils.randomElement(self.items)
+    if setter then
+        -- Setter can be a field name (string) or a function
+        if type(setter) == "string" then
+            local fieldName = setter
+            for i = 1, #targetList do
+                targetList[i][fieldName] = utils.randomElement(self.items)
+            end
+        elseif type(setter) == "function" then
+            for i = 1, #targetList do
+                setter(targetList[i], utils.randomElement(self.items), i)
+            end
+        else
+            error("Setter must be a string (field name) or function, got " .. type(setter))
+        end
+    else
+        -- Original behavior: replace array elements directly
+        for i = 1, #targetList do
+            targetList[i] = utils.randomElement(self.items)
+        end
     end
 
     return targetList

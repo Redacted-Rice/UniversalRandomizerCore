@@ -87,7 +87,7 @@ randomizer.List = List
 randomizer.Group = Group
 
 -- Version info
-randomizer._VERSION = "0.7.0"
+randomizer._VERSION = "0.8.0"
 randomizer._DESCRIPTION = "Lua based randomization functions to support randomizing arbitrary lists of objects and their parameters"
 
 return randomizer

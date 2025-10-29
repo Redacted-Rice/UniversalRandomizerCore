@@ -37,9 +37,9 @@ local processed = numbers
 print("After removeDuplicates, sort, filter(>3):", table.concat(processed:toTable(), ", "))
 print()
 
--- Example 3: Weapon Randomization with Grouped Pools
-print("Example 3: Weapon Randomization (Grouped)")
-print("------------------------------------------")
+-- Example 3: Weapon Randomization with Grouped Pools (In-Place)
+print("Example 3: Weapon Randomization (Grouped, In-Place)")
+print("-----------------------------------------------------")
 
 -- Define our weapons to randomize
 local weapons = {
@@ -62,21 +62,15 @@ for i, weapon in ipairs(weapons) do
         i, weapon.name, weapon.type, weapon.tier))
 end
 
--- Create a copy of weapon names to randomize
-local weaponNames = {}
-for i, weapon in ipairs(weapons) do
-    weaponNames[i] = weapon.name
-end
-
--- Randomize using the weapon type as the selector
-randomizer.randomize(weaponNames, weaponPools, function(weaponName, index)
-    return weapons[index].type
-end)
+-- Randomize the 'name' field directly on weapon objects
+weaponPools:randomize(weapons, function(weapon)
+    return weapon.type
+end, "name")  -- "name" is the field to update
 
 print("\nWeapons after randomization:")
 for i, weapon in ipairs(weapons) do
-    print(string.format("  %d. %s -> %s (type: %s, tier: %d)",
-        i, weapon.name, weaponNames[i], weapon.type, weapon.tier))
+    print(string.format("  %d. %s (type: %s, tier: %d)",
+        i, weapon.name, weapon.type, weapon.tier))
 end
 print()
 
@@ -147,8 +141,38 @@ for key, list in pairs(filtered:toTable()) do
 end
 print()
 
--- Example 7: Using Standalone Functions
-print("Example 7: Using Standalone Functions")
+-- Example 7: In-Place Randomization with Custom Setter
+print("Example 7: In-Place Randomization with Custom Setter")
+print("------------------------------------------------------")
+
+-- Items with multiple fields to update
+local items = {
+    {id = 1, value = 10, multiplier = 1.0},
+    {id = 2, value = 20, multiplier = 1.0},
+    {id = 3, value = 30, multiplier = 1.0}
+}
+
+local valuePool = randomizer.list({100, 200, 300})
+
+print("Items before:")
+for _, item in ipairs(items) do
+    print(string.format("  ID: %d, Value: %d, Multiplier: %.1f", item.id, item.value, item.multiplier))
+end
+
+-- Use custom setter function to update multiple fields
+valuePool:randomize(items, function(item, newValue, index)
+    item.value = newValue
+    item.multiplier = newValue / 100.0
+end)
+
+print("\nItems after:")
+for _, item in ipairs(items) do
+    print(string.format("  ID: %d, Value: %d, Multiplier: %.1f", item.id, item.value, item.multiplier))
+end
+print()
+
+-- Example 8: Using Standalone Functions
+print("Example 8: Using Standalone Functions")
 print("--------------------------------------")
 
 local plainList = {5, 3, 8, 1, 9, 3, 5}

@@ -122,6 +122,14 @@ describe("Init Module - Standalone Functions", function()
             assert.is_true(items[2] == "B" or items[2] == "C" or items[2] == "D")
             assert.is_true(items[3] == "B" or items[3] == "C" or items[3] == "D")
         end)
+
+        it("should error when source is invalid type", function()
+            local target = {1, 2, 3}
+
+            assert.has_error(function()
+                randomizer.randomize(target, "not a valid source")
+            end)
+        end)
     end)
 
     describe("Module Metadata", function()

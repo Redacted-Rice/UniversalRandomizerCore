@@ -277,6 +277,115 @@ describe("Group Module", function()
                 end)
             end)
         end)
+
+        it("should randomize object field with string setter", function()
+            randomizer.setSeed(42)
+            local weapons = {
+                {id = 1, name = "old_melee", type = "melee"},
+                {id = 2, name = "old_ranged", type = "ranged"}
+            }
+            local pools = randomizer.group({
+                melee = {"Sword", "Axe"},
+                ranged = {"Bow", "Gun"}
+            })
+
+            pools:randomize(weapons, function(weapon)
+                return weapon.type
+            end, "name")
+
+            -- Check melee got melee name, ranged got ranged name
+            assert.is_true(weapons[1].name == "Sword" or weapons[1].name == "Axe")
+            assert.is_true(weapons[2].name == "Bow" or weapons[2].name == "Gun")
+            -- IDs should be unchanged
+            assert.are.equal(1, weapons[1].id)
+            assert.are.equal(2, weapons[2].id)
+        end)
+
+        it("should randomize with custom setter function", function()
+            randomizer.setSeed(99)
+            local items = {
+                {category = "A", value = 0, valueSquared = 0},
+                {category = "B", value = 0, valueSquared = 0}
+            }
+            local groups = randomizer.group({
+                A = {5, 10},
+                B = {20, 30}
+            })
+
+            groups:randomize(items, function(item) return item.category end,
+                function(item, val, idx)
+                    item.value = val
+                    item.valueSquared = val * val
+                end)
+
+            -- Check values and squares are consistent
+            for _, item in ipairs(items) do
+                assert.are.equal(item.value * item.value, item.valueSquared)
+            end
+
+            -- Check category A got A values, B got B values
+            assert.is_true(items[1].value == 5 or items[1].value == 10)
+            assert.is_true(items[2].value == 20 or items[2].value == 30)
+        end)
+
+        it("should error when key not found with string setter", function()
+            local group = randomizer.group({
+                a = {1, 2, 3}
+            })
+            local items = {{id = 1}}
+
+            assert.has_error(function()
+                group:randomize(items, function() return "nonexistent" end, "id")
+            end)
+        end)
+
+        it("should error when list is empty with string setter", function()
+            local group = randomizer.group({
+                a = {1, 2, 3},
+                b = {}
+            })
+            local items = {{id = 1}}
+
+            assert.has_error(function()
+                group:randomize(items, function() return "b" end, "id")
+            end)
+        end)
+
+        it("should error when key not found with function setter", function()
+            local group = randomizer.group({
+                a = {1, 2, 3}
+            })
+            local items = {{id = 1}}
+
+            assert.has_error(function()
+                group:randomize(items, function() return "nonexistent" end,
+                    function(item, val) item.id = val end)
+            end)
+        end)
+
+        it("should error when list is empty with function setter", function()
+            local group = randomizer.group({
+                a = {1, 2, 3},
+                b = {}
+            })
+            local items = {{id = 1}}
+
+            assert.has_error(function()
+                group:randomize(items, function() return "b" end,
+                    function(item, val) item.id = val end)
+            end)
+        end)
+
+        it("should error when setter is invalid type", function()
+            local group = randomizer.group({
+                a = {1, 2, 3}
+            })
+            local items = {{id = 1}}
+
+            assert.has_error(function()
+                group:randomize(items, function() return "a" end, 42)  -- Number instead of string/function
+            end)
+        end)
     end)
 
     describe("ToTable", function()
