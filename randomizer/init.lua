@@ -11,12 +11,12 @@ local randomizer = {}
 randomizer.setSeed = utils.setSeed
 
 -- Expose constructors
-randomizer.list = function(items)
-    return List.new(items)
+randomizer.list = function(items, options)
+    return List.new(items, options)
 end
 
-randomizer.group = function(listsMap)
-    return Group.new(listsMap)
+randomizer.group = function(listsMap, options)
+    return Group.new(listsMap, options)
 end
 
 -- Expose static methods
