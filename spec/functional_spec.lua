@@ -357,4 +357,47 @@ describe("Functional Tests - Real World Workflows", function()
             assert.are.same({5, 8, 9}, shuffledSorted)
         end)
     end)
+
+    describe("Game Modding: Limited-Use Loot Tables (Consumable Pools)", function()
+        it("should assign unique drops until pools deplete; then honor regenerate flag", function()
+            randomizer.setSeed(2025)
+
+            local enemies = {
+                {name = "Goblin", difficulty = "easy"},
+                {name = "Wolf", difficulty = "easy"},
+                {name = "Orc", difficulty = "medium"},
+                {name = "Troll", difficulty = "medium"}
+            }
+
+            local lootPools = randomizer.group({
+                easy = {"Copper Coin", "Stick"},
+                medium = {"Silver Coin", "Iron Sword"}
+            })
+
+            -- First pass: consumable without regenerate yields unique items within difficulty
+            local drops1 = {"","","",""}
+            lootPools:randomize(drops1, function(_, i) return enemies[i].difficulty end, { consumable = true, regenerate = false })
+
+            -- Each difficulty's drops should be a permutation of its pool
+            local easyDrops = {drops1[1], drops1[2]}
+            table.sort(easyDrops)
+            assert.are.same({"Copper Coin","Stick"}, easyDrops)
+            local medDrops = {drops1[3], drops1[4]}
+            table.sort(medDrops)
+            assert.are.same({"Iron Sword","Silver Coin"}, medDrops)
+
+            -- Second pass with more enemies than pool size should error without regenerate
+            local more = {"","",""}
+            assert.has_error(function()
+                lootPools:randomize(more, function() return "easy" end, { consumable = true, regenerate = false })
+            end)
+
+            -- Third pass with regenerate=true should continue by refilling as needed
+            local moreOk = {"","",""}
+            lootPools:randomize(moreOk, function() return "easy" end, { consumable = true, regenerate = true })
+            for _, d in ipairs(moreOk) do
+                assert.is_true(d == "Copper Coin" or d == "Stick")
+            end
+        end)
+    end)
 end)

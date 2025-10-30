@@ -202,6 +202,49 @@ describe("List Module", function()
         end)
     end)
 
+    describe("Consumable Pools", function()
+        it("should consume items without replacement when consumable=true", function()
+            randomizer.setSeed(42)
+            local pool = randomizer.list({"A", "B", "C"})
+            local target = {0, 0, 0}
+            -- expected API: options as third arg when setter is nil
+            pool:randomize(target, nil, { consumable = true, regenerate = false })
+            -- target should be a permutation of the pool with no duplicates
+            local copy = randomizer.sort(randomizer.removeDuplicates(target))
+            assert.are.same({"A", "B", "C"}, copy)
+        end)
+
+        it("should error if requesting more than available without regenerate", function()
+            randomizer.setSeed(99)
+            local pool = randomizer.list({1, 2})
+            local target = {0, 0, 0}
+            assert.has_error(function()
+                pool:randomize(target, nil, { consumable = true, regenerate = false })
+            end)
+        end)
+
+        it("should regenerate when empty if regenerate=true", function()
+            randomizer.setSeed(7)
+            local pool = randomizer.list({1, 2})
+            local target = {0, 0, 0, 0}
+            pool:randomize(target, nil, { consumable = true, regenerate = true })
+            -- All values must be from original pool
+            for _, v in ipairs(target) do
+                assert.is_true(v == 1 or v == 2)
+            end
+        end)
+
+        it("should support consumable behavior with string setter", function()
+            randomizer.setSeed(13)
+            local objs = { {name=""}, {name=""}, {name=""} }
+            local pool = randomizer.list({"X", "Y", "Z"})
+            pool:randomize(objs, "name", { consumable = true, regenerate = false })
+            local names = { objs[1].name, objs[2].name, objs[3].name }
+            table.sort(names)
+            assert.are.same({"X","Y","Z"}, names)
+        end)
+    end)
+
     describe("Immutability", function()
         it("should preserve immutability in operations", function()
             local original = randomizer.list({3, 1, 2})

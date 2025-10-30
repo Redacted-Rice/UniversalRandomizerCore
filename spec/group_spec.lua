@@ -388,6 +388,62 @@ describe("Group Module", function()
         end)
     end)
 
+    describe("Consumable Pools", function()
+        it("should consume within each group without replacement", function()
+            randomizer.setSeed(21)
+            local pools = randomizer.group({
+                A = {"a1", "a2"},
+                B = {"b1", "b2", "b3"}
+            })
+            local targets = {0,0,0,0,0}
+            local selectors = {"A","A","B","B","B"}
+            pools:randomize(targets, function(_, i) return selectors[i] end, { consumable = true, regenerate = false })
+            -- group A results should be a permutation of its pool with no duplicates
+            local aResults = {targets[1], targets[2]}
+            table.sort(aResults)
+            assert.are.same({"a1","a2"}, aResults)
+            -- group B results should be a permutation of its pool with no duplicates
+            local bResults = {targets[3], targets[4], targets[5]}
+            table.sort(bResults)
+            assert.are.same({"b1","b2","b3"}, bResults)
+        end)
+
+        it("should error if a group depletes and regenerate=false", function()
+            randomizer.setSeed(33)
+            local pools = randomizer.group({ K = {1} })
+            local targets = {0,0}
+            assert.has_error(function()
+                pools:randomize(targets, function() return "K" end, { consumable = true, regenerate = false })
+            end)
+        end)
+
+        it("should regenerate per group when regenerate=true", function()
+            randomizer.setSeed(44)
+            local pools = randomizer.group({ K = {1,2} })
+            local targets = {0,0,0}
+            pools:randomize(targets, function() return "K" end, { consumable = true, regenerate = true })
+            for _, v in ipairs(targets) do
+                assert.is_true(v == 1 or v == 2)
+            end
+        end)
+
+        it("should support consumable with field-name setter", function()
+            randomizer.setSeed(55)
+            local items = {
+                {key = "A", name = ""},
+                {key = "A", name = ""},
+                {key = "B", name = ""},
+            }
+            local pools = randomizer.group({ A = {"x","y"}, B = {"u","v","w"} })
+            pools:randomize(items, function(item) return item.key end, "name", { consumable = true, regenerate = false })
+            -- A names should be unique and from its pool
+            local a = {}
+            for _, it in ipairs(items) do if it.key == "A" then table.insert(a, it.name) end end
+            table.sort(a)
+            assert.are.same({"x","y"}, a)
+        end)
+    end)
+
     describe("ToTable", function()
         it("should convert to plain table of tables", function()
             local group = randomizer.group({

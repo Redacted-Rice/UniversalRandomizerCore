@@ -134,7 +134,7 @@ describe("Init Module - Standalone Functions", function()
 
     describe("Module Metadata", function()
         it("should have version information", function()
-            assert.are.equal("1.0.0", randomizer._VERSION)
+            assert.are.equal("0.8.0", randomizer._VERSION)
             assert.is_string(randomizer._DESCRIPTION)
         end)
 
