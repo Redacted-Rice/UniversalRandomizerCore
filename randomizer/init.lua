@@ -61,22 +61,21 @@ randomizer.selectRandom = function(tbl, count)
 end
 
 -- Universal randomize function that works with both List and Group
--- For List: randomizer.randomize(targetList, list)
--- For Group: randomizer.randomize(targetList, group, selectorFn)
-randomizer.randomize = function(targetList, source, selectorFn)
+-- For List: randomizer.randomize(targetList, list, setter, options)
+-- For Group: randomizer.randomize(targetList, group, selectorFn, setter, options)
+randomizer.randomize = function(targetList, source, ...)
     assert(type(targetList) == "table", "Expected table for targetList, got " .. type(targetList))
 
     if utils.isList(source) then
-        -- Simple list randomization
-        return source:randomize(targetList)
+        -- Simple list randomization: randomize(targetList, list, setter, options)
+        return source:useToRandomize(targetList, ...)
     elseif utils.isGroup(source) then
-        -- Grouped randomization
-        assert(type(selectorFn) == "function", "selectorFn is required for Group randomization")
-        return source:randomize(targetList, selectorFn)
+        -- Grouped randomization: randomize(targetList, group, selectorFn, setter, options)
+        return source:useToRandomize(targetList, ...)
     elseif type(source) == "table" then
         -- Plain table, treat as list
         local list = List.new(source)
-        return list:randomize(targetList)
+        return list:useToRandomize(targetList, ...)
     else
         error("Expected List, Group, or table for source, got " .. type(source))
     end

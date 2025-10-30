@@ -63,7 +63,7 @@ for i, weapon in ipairs(weapons) do
 end
 
 -- Randomize the 'name' field directly on weapon objects
-weaponPools:randomize(weapons, function(weapon)
+weaponPools:useToRandomize(weapons, function(weapon)
     return weapon.type
 end, "name")  -- "name" is the field to update
 
@@ -160,7 +160,7 @@ for _, item in ipairs(items) do
 end
 
 -- Use custom setter function to update multiple fields
-valuePool:randomize(items, function(item, newValue, index)
+valuePool:useToRandomize(items, function(item, newValue, index)
     item.value = newValue
     item.multiplier = newValue / 100.0
 end)

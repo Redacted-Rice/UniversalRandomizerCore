@@ -12,34 +12,34 @@ describe("Functional Tests - Typical Use Cases", function()
         it("should create a consumable pool from existing object values and randomize in place", function()
             randomizer.setSeed(42)
 
-            -- Start with a list of items with existing IDs
+            -- Start with a list of items with existing rarities
             local items = {
                 {id = "item_001", name = "Sword", rarity = "common"},
                 {id = "item_002", name = "Shield", rarity = "rare"},
                 {id = "item_003", name = "Helmet", rarity = "uncommon"},
-                {id = "item_004", name = "Boots", rarity = "common"}
+                {id = "item_004", name = "Boots", rarity = "legendary"}
             }
 
-            -- Extract existing IDs to create the pool
-            local existingIds = {}
+            -- Extract existing rarities to create the pool
+            local existingRarities = {}
             for i, item in ipairs(items) do
-                table.insert(existingIds, item.id)
+                table.insert(existingRarities, item.rarity)
             end
 
-            -- Create a consumable pool from these IDs
-            local idPool = randomizer.list(existingIds)
+            -- Create a consumable pool from these rarities
+            local rarityPool = randomizer.list(existingRarities)
 
-            -- Randomize the IDs in place, consuming from the pool (no regenerate means each ID used once)
-            idPool:randomize(items, "id", {consumable = true, regenerate = false})
+            -- Randomize the rarities in place using randomizer.randomize with options
+            randomizer.randomize(items, rarityPool, "rarity", {consumable = true, regenerate = false})
 
-            -- Verify all items got unique IDs from the original set
-            local newIds = {}
+            -- Verify all items got unique rarities from the original set
+            local newRarities = {}
             for _, item in ipairs(items) do
-                table.insert(newIds, item.id)
+                table.insert(newRarities, item.rarity)
             end
-            table.sort(newIds)
-            table.sort(existingIds)
-            assert.are.same(existingIds, newIds, "All original IDs should be present exactly once")
+            table.sort(newRarities)
+            table.sort(existingRarities)
+            assert.are.same(existingRarities, newRarities, "All original rarities should be present exactly once")
 
             -- Verify other fields are unchanged
             assert.are.equal("Sword", items[1].name)
@@ -47,75 +47,51 @@ describe("Functional Tests - Typical Use Cases", function()
         end)
     end)
 
-    describe("Use Case 2: Two-Stage Randomization with Grouped Pools", function()
-        it("should randomize group type first, then randomize values based on new group type", function()
+    describe("Use Case 2: Grouped Pool Based on Rarity", function()
+        it("should randomize damage values based on item rarity where higher rarity means higher damage", function()
             randomizer.setSeed(99)
 
-            -- Start with items that have a type and value
+            -- Start with items that have a rarity and damage
             local items = {
-                {name = "Item1", type = "weapon", damage = 10},
-                {name = "Item2", type = "armor", defense = 5},
-                {name = "Item3", type = "weapon", damage = 15},
-                {name = "Item4", type = "armor", defense = 8}
+                {name = "Iron Sword", rarity = "common", damage = 10},
+                {name = "Steel Axe", rarity = "uncommon", damage = 15},
+                {name = "Mithril Blade", rarity = "rare", damage = 20},
+                {name = "Dragon Slayer", rarity = "legendary", damage = 25}
             }
 
-            -- Create a reusable pool of types (no duplicates)
-            local typePool = randomizer.list({"weapon", "armor", "accessory"}):removeDuplicates()
-
-            -- Create a reusable, non-consumable grouped pool of values
-            local valueGroups = randomizer.group({
-                weapon = {12, 18, 25, 30},      -- damage values
-                armor = {10, 15, 20, 25},        -- defense values
-                accessory = {5, 8, 12, 15}       -- bonus values
+            -- Create a reusable, non-consumable grouped pool where damage increases by rarity
+            local damageByRarity = randomizer.group({
+                common = {8, 10, 12},           -- Low damage
+                uncommon = {15, 18, 20},        -- Medium damage
+                rare = {25, 28, 30},            -- High damage
+                legendary = {35, 40, 45}        -- Very high damage
             }):removeDuplicates()
 
-            -- Stage 1: Randomize the type for each item
-            typePool:randomize(items, "type")
+            -- Randomize damage based on rarity using randomizer.randomize API
+            randomizer.randomize(items, damageByRarity, function(item)
+                return item.rarity
+            end, "damage")
 
-            -- Verify types are from the pool
+            -- Verify damage values match their rarity tiers
             for _, item in ipairs(items) do
-                assert.is_true(item.type == "weapon" or item.type == "armor" or item.type == "accessory")
-            end
-
-            -- Stage 2: Randomize values based on the NEW type
-            valueGroups:randomize(items, function(item)
-                return item.type
-            end, function(item, value)
-                -- Set the appropriate stat based on type
-                if item.type == "weapon" then
-                    item.damage = value
-                elseif item.type == "armor" then
-                    item.defense = value
-                elseif item.type == "accessory" then
-                    item.bonus = value
-                end
-            end)
-
-            -- Verify values match their types
-            for _, item in ipairs(items) do
-                if item.type == "weapon" then
-                    assert.is_not_nil(item.damage)
-                    local found = false
-                    for _, v in ipairs({12, 18, 25, 30}) do
-                        if item.damage == v then found = true end
-                    end
-                    assert.is_true(found, "Weapon damage should be from weapon pool")
-                elseif item.type == "armor" then
-                    assert.is_not_nil(item.defense)
-                    local found = false
-                    for _, v in ipairs({10, 15, 20, 25}) do
-                        if item.defense == v then found = true end
-                    end
-                    assert.is_true(found, "Armor defense should be from armor pool")
-                elseif item.type == "accessory" then
-                    assert.is_not_nil(item.bonus)
-                    local found = false
-                    for _, v in ipairs({5, 8, 12, 15}) do
-                        if item.bonus == v then found = true end
-                    end
-                    assert.is_true(found, "Accessory bonus should be from accessory pool")
+                if item.rarity == "common" then
+                    assert.is_true(item.damage >= 8 and item.damage <= 12,
+                        "Common items should have low damage")
+                elseif item.rarity == "uncommon" then
+                    assert.is_true(item.damage >= 15 and item.damage <= 20,
+                        "Uncommon items should have medium damage")
+                elseif item.rarity == "rare" then
+                    assert.is_true(item.damage >= 25 and item.damage <= 30,
+                        "Rare items should have high damage")
+                elseif item.rarity == "legendary" then
+                    assert.is_true(item.damage >= 35 and item.damage <= 45,
+                        "Legendary items should have very high damage")
                 end
             end
+
+            -- Verify names are unchanged
+            assert.are.equal("Iron Sword", items[1].name)
+            assert.are.equal("Steel Axe", items[2].name)
         end)
     end)
 
@@ -134,8 +110,8 @@ describe("Functional Tests - Typical Use Cases", function()
             -- Create a uniform pool where each value has equal probability
             local healthPool = randomizer.list({50, 75, 100, 125, 150})
 
-            -- Randomize health values in place (non-consumable = can repeat)
-            healthPool:randomize(enemies, "health")
+            -- Randomize health values in place using applyTo (non-consumable = can repeat)
+            healthPool:useToRandomize(enemies, "health")
 
             -- Verify all health values are from the pool
             for _, enemy in ipairs(enemies) do
@@ -170,7 +146,7 @@ describe("Functional Tests - Typical Use Cases", function()
 
             -- Create a weighted pool by adding duplicates
             -- Common items appear more often, rare items appear less
-            local lootPool = randomizer.list({
+            local lootPool = {
                 "Gold Coin",      -- Common (appears 5 times)
                 "Gold Coin",
                 "Gold Coin",
@@ -181,10 +157,10 @@ describe("Functional Tests - Typical Use Cases", function()
                 "Silver Coin",
                 "Magic Gem",      -- Rare (appears 1 time)
                 "Legendary Sword" -- Legendary (appears 1 time)
-            })
+            }
 
-            -- Randomize loot (non-consumable = with replacement)
-            lootPool:randomize(chests, "loot")
+            -- Randomize loot using randomizer.randomize with plain table (non-consumable = with replacement)
+            randomizer.randomize(chests, lootPool, "loot")
 
             -- Count occurrences
             local counts = {
@@ -218,32 +194,32 @@ describe("Functional Tests - Typical Use Cases", function()
         it("should use consumable pools per group for unique assignments", function()
             randomizer.setSeed(789)
 
-            -- Character slots that need unique equipment per slot type
+            -- Characters with starting equipment that needs to be unique per equipment type
             local characters = {
-                {name = "Warrior", slotType = "weapon", equipment = "none"},
-                {name = "Mage", slotType = "weapon", equipment = "none"},
-                {name = "Rogue", slotType = "armor", equipment = "none"},
-                {name = "Paladin", slotType = "armor", equipment = "none"}
+                {name = "Warrior", startingEquipment = "weapon", equipment = "none"},
+                {name = "Mage", startingEquipment = "weapon", equipment = "none"},
+                {name = "Rogue", startingEquipment = "armor", equipment = "none"},
+                {name = "Paladin", startingEquipment = "armor", equipment = "none"}
             }
 
-            -- Create grouped pools for each slot type
+            -- Create grouped pools for each equipment type
             local equipmentPools = randomizer.group({
                 weapon = {"Sword", "Axe"},
                 armor = {"Plate Mail", "Chain Mail"}
             })
 
             -- Use consumable pools to ensure no duplicate equipment within each type
-            equipmentPools:randomize(characters, function(char)
-                return char.slotType
+            equipmentPools:useToRandomize(characters, function(char)
+                return char.startingEquipment
             end, "equipment", {consumable = true, regenerate = false})
 
             -- Verify weapon slots have unique weapons
             local weaponEquipment = {}
             local armorEquipment = {}
             for _, char in ipairs(characters) do
-                if char.slotType == "weapon" then
+                if char.startingEquipment == "weapon" then
                     table.insert(weaponEquipment, char.equipment)
-                elseif char.slotType == "armor" then
+                elseif char.startingEquipment == "armor" then
                     table.insert(armorEquipment, char.equipment)
                 end
             end
@@ -282,8 +258,8 @@ describe("Functional Tests - Typical Use Cases", function()
                 return encounter.difficulty
             end)
 
-            -- Randomize room content based on difficulty
-            encounterGroups:randomize(rooms, function(room)
+            -- Randomize room content based on difficulty using applyTo
+            encounterGroups:useToRandomize(rooms, function(room)
                 return room.difficulty
             end, function(room, encounter)
                 room.content = encounter.name
@@ -297,6 +273,78 @@ describe("Functional Tests - Typical Use Cases", function()
                     assert.is_true(room.content == "Wolf" or room.content == "Orc")
                 elseif room.difficulty == "hard" then
                     assert.is_true(room.content == "Dragon" or room.content == "Demon")
+                end
+            end
+        end)
+    end)
+
+    describe("Use Case 7: Two-Stage Randomization with Grouped Pools", function()
+        it("should randomize group type first, then randomize values based on new group type", function()
+            randomizer.setSeed(789)
+
+            -- Start with items that have a type and value
+            local items = {
+                {name = "Item1", type = "weapon", damage = 10},
+                {name = "Item2", type = "armor", defense = 5},
+                {name = "Item3", type = "weapon", damage = 15},
+                {name = "Item4", type = "armor", defense = 8}
+            }
+
+            -- Create a reusable pool of types (no duplicates)
+            local typePool = randomizer.list({"weapon", "armor", "accessory"}):removeDuplicates()
+
+            -- Create a reusable, non-consumable grouped pool of values
+            local valueGroups = randomizer.group({
+                weapon = {12, 18, 25, 30},      -- damage values
+                armor = {10, 15, 20, 25},        -- defense values
+                accessory = {5, 8, 12, 15}       -- bonus values
+            }):removeDuplicates()
+
+            -- Stage 1: Randomize the type for each item using randomizer.randomize
+            randomizer.randomize(items, typePool, "type")
+
+            -- Verify types are from the pool
+            for _, item in ipairs(items) do
+                assert.is_true(item.type == "weapon" or item.type == "armor" or item.type == "accessory")
+            end
+
+            -- Stage 2: Randomize values based on the NEW type using applyTo
+            valueGroups:useToRandomize(items, function(item)
+                return item.type
+            end, function(item, value)
+                -- Set the appropriate stat based on type
+                if item.type == "weapon" then
+                    item.damage = value
+                elseif item.type == "armor" then
+                    item.defense = value
+                elseif item.type == "accessory" then
+                    item.bonus = value
+                end
+            end)
+
+            -- Verify values match their types
+            for _, item in ipairs(items) do
+                if item.type == "weapon" then
+                    assert.is_not_nil(item.damage)
+                    local found = false
+                    for _, v in ipairs({12, 18, 25, 30}) do
+                        if item.damage == v then found = true end
+                    end
+                    assert.is_true(found, "Weapon damage should be from weapon pool")
+                elseif item.type == "armor" then
+                    assert.is_not_nil(item.defense)
+                    local found = false
+                    for _, v in ipairs({10, 15, 20, 25}) do
+                        if item.defense == v then found = true end
+                    end
+                    assert.is_true(found, "Armor defense should be from armor pool")
+                elseif item.type == "accessory" then
+                    assert.is_not_nil(item.bonus)
+                    local found = false
+                    for _, v in ipairs({5, 8, 12, 15}) do
+                        if item.bonus == v then found = true end
+                    end
+                    assert.is_true(found, "Accessory bonus should be from accessory pool")
                 end
             end
         end)

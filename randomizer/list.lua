@@ -82,14 +82,14 @@ function List:shuffle()
     return List.new(shuffled)
 end
 
--- Randomize a target list by replacing each item with a random value from this list
+-- Use this pool to randomize a target list by replacing each item with a random value from the pool
 -- Modifies targetList in place
 -- Returns the modified targetList for convenience
 -- Optional setter: function(item, value) to set value on item, or string field name
 -- Optional options: table with consumable (boolean) and regenerate (boolean) flags
-function List:randomize(targetList, setter, options)
+function List:useToRandomize(targetList, setter, options)
     assert(type(targetList) == "table", "Expected table, got " .. type(targetList))
-    assert(#self.items > 0, "Cannot randomize from empty list")
+    assert(#self.items > 0, "Cannot apply from empty list")
 
     -- Parse options
     local consumable = false

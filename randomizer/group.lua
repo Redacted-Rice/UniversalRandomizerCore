@@ -135,13 +135,13 @@ function Group:sort(compareFn)
     return Group.new(sorted)
 end
 
--- Randomize a target list using selector function to pick which list to use per item
+-- Use this grouped pool to randomize a target list using selector function to pick which pool to use per item
 -- selectorFn: function(item, index) -> key
 -- Modifies targetList in place
 -- Returns the modified targetList for convenience
 -- Optional setter: function(item, value, index) to set value on item, or string field name
 -- Optional options: table with consumable (boolean) and regenerate (boolean) flags
-function Group:randomize(targetList, selectorFn, setter, options)
+function Group:useToRandomize(targetList, selectorFn, setter, options)
     assert(type(targetList) == "table", "Expected table, got " .. type(targetList))
     assert(type(selectorFn) == "function", "Expected function, got " .. type(selectorFn))
 

@@ -238,7 +238,7 @@ describe("Group Module", function()
                 names[i] = weapon.name
             end
 
-            pools:randomize(names, function(name, index)
+            pools:useToRandomize(names, function(name, index)
                 return weapons[index].type
             end)
 
@@ -259,7 +259,7 @@ describe("Group Module", function()
             local target = {"x"}
 
             assert.has_error(function()
-                group:randomize(target, function() return "nonexistent" end)
+                group:useToRandomize(target, function() return "nonexistent" end)
             end)
         end)
 
@@ -272,7 +272,7 @@ describe("Group Module", function()
             local target = {"item1", "item2"}
 
             assert.has_error(function()
-                group:randomize(target, function(item, idx)
+                group:useToRandomize(target, function(item, idx)
                     return idx == 1 and "a" or "b"
                 end)
             end)
@@ -289,7 +289,7 @@ describe("Group Module", function()
                 ranged = {"Bow", "Gun"}
             })
 
-            pools:randomize(weapons, function(weapon)
+            pools:useToRandomize(weapons, function(weapon)
                 return weapon.type
             end, "name")
 
@@ -312,7 +312,7 @@ describe("Group Module", function()
                 B = {20, 30}
             })
 
-            groups:randomize(items, function(item) return item.category end,
+            groups:useToRandomize(items, function(item) return item.category end,
                 function(item, val, idx)
                     item.value = val
                     item.valueSquared = val * val
@@ -335,7 +335,7 @@ describe("Group Module", function()
             local items = {{id = 1}}
 
             assert.has_error(function()
-                group:randomize(items, function() return "nonexistent" end, "id")
+                group:useToRandomize(items, function() return "nonexistent" end, "id")
             end)
         end)
 
@@ -347,7 +347,7 @@ describe("Group Module", function()
             local items = {{id = 1}}
 
             assert.has_error(function()
-                group:randomize(items, function() return "b" end, "id")
+                group:useToRandomize(items, function() return "b" end, "id")
             end)
         end)
 
@@ -358,7 +358,7 @@ describe("Group Module", function()
             local items = {{id = 1}}
 
             assert.has_error(function()
-                group:randomize(items, function() return "nonexistent" end,
+                group:useToRandomize(items, function() return "nonexistent" end,
                     function(item, val) item.id = val end)
             end)
         end)
@@ -371,7 +371,7 @@ describe("Group Module", function()
             local items = {{id = 1}}
 
             assert.has_error(function()
-                group:randomize(items, function() return "b" end,
+                group:useToRandomize(items, function() return "b" end,
                     function(item, val) item.id = val end)
             end)
         end)
@@ -383,7 +383,7 @@ describe("Group Module", function()
             local items = {{id = 1}}
 
             assert.has_error(function()
-                group:randomize(items, function() return "a" end, 42)  -- Number instead of string/function
+                group:useToRandomize(items, function() return "a" end, 42)  -- Number instead of string/function
             end)
         end)
     end)
@@ -397,7 +397,7 @@ describe("Group Module", function()
             })
             local targets = {0,0,0,0,0}
             local selectors = {"A","A","B","B","B"}
-            pools:randomize(targets, function(_, i) return selectors[i] end, { consumable = true, regenerate = false })
+            pools:useToRandomize(targets, function(_, i) return selectors[i] end, { consumable = true, regenerate = false })
             -- group A results should be a permutation of its pool with no duplicates
             local aResults = {targets[1], targets[2]}
             table.sort(aResults)
@@ -413,7 +413,7 @@ describe("Group Module", function()
             local pools = randomizer.group({ K = {1} })
             local targets = {0,0}
             assert.has_error(function()
-                pools:randomize(targets, function() return "K" end, { consumable = true, regenerate = false })
+                pools:useToRandomize(targets, function() return "K" end, { consumable = true, regenerate = false })
             end)
         end)
 
@@ -421,7 +421,7 @@ describe("Group Module", function()
             randomizer.setSeed(44)
             local pools = randomizer.group({ K = {1,2} })
             local targets = {0,0,0}
-            pools:randomize(targets, function() return "K" end, { consumable = true, regenerate = true })
+            pools:useToRandomize(targets, function() return "K" end, { consumable = true, regenerate = true })
             for _, v in ipairs(targets) do
                 assert.is_true(v == 1 or v == 2)
             end
@@ -435,7 +435,7 @@ describe("Group Module", function()
                 {key = "B", name = ""},
             }
             local pools = randomizer.group({ A = {"x","y"}, B = {"u","v","w"} })
-            pools:randomize(items, function(item) return item.key end, "name", { consumable = true, regenerate = false })
+            pools:useToRandomize(items, function(item) return item.key end, "name", { consumable = true, regenerate = false })
             -- A names should be unique and from its pool
             local a = {}
             for _, it in ipairs(items) do if it.key == "A" then table.insert(a, it.name) end end

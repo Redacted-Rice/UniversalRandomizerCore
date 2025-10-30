@@ -134,7 +134,7 @@ describe("List Module", function()
             local target = {"A", "B", "C"}
             local pool = randomizer.list({"X", "Y", "Z"})
 
-            local result = pool:randomize(target)
+            local result = pool:useToRandomize(target)
 
             -- Should modify in place
             assert.are.equal(target, result)
@@ -153,7 +153,7 @@ describe("List Module", function()
             }
             local pool = randomizer.list({"new1", "new2", "new3"})
 
-            pool:randomize(objects, "name")
+            pool:useToRandomize(objects, "name")
 
             -- All names should be from the pool
             for _, obj in ipairs(objects) do
@@ -171,7 +171,7 @@ describe("List Module", function()
             }
             local pool = randomizer.list({5, 10, 15})
 
-            pool:randomize(objects, function(obj, val, idx)
+            pool:useToRandomize(objects, function(obj, val, idx)
                 obj.value = val
                 obj.double = val * 2
             end)
@@ -188,7 +188,7 @@ describe("List Module", function()
             local target = {1, 2, 3}
 
             assert.has_error(function()
-                list:randomize(target)
+                list:useToRandomize(target)
             end)
         end)
 
@@ -197,7 +197,7 @@ describe("List Module", function()
             local objects = {{value = 0}, {value = 0}}
 
             assert.has_error(function()
-                list:randomize(objects, 42)  -- Number instead of string/function
+                list:useToRandomize(objects, 42)  -- Number instead of string/function
             end)
         end)
     end)
@@ -208,7 +208,7 @@ describe("List Module", function()
             local pool = randomizer.list({"A", "B", "C"})
             local target = {0, 0, 0}
             -- expected API: options as third arg when setter is nil
-            pool:randomize(target, nil, { consumable = true, regenerate = false })
+            pool:useToRandomize(target, nil, { consumable = true, regenerate = false })
             -- target should be a permutation of the pool with no duplicates
             local copy = randomizer.sort(randomizer.removeDuplicates(target))
             assert.are.same({"A", "B", "C"}, copy)
@@ -219,7 +219,7 @@ describe("List Module", function()
             local pool = randomizer.list({1, 2})
             local target = {0, 0, 0}
             assert.has_error(function()
-                pool:randomize(target, nil, { consumable = true, regenerate = false })
+                pool:useToRandomize(target, nil, { consumable = true, regenerate = false })
             end)
         end)
 
@@ -227,7 +227,7 @@ describe("List Module", function()
             randomizer.setSeed(7)
             local pool = randomizer.list({1, 2})
             local target = {0, 0, 0, 0}
-            pool:randomize(target, nil, { consumable = true, regenerate = true })
+            pool:useToRandomize(target, nil, { consumable = true, regenerate = true })
             -- All values must be from original pool
             for _, v in ipairs(target) do
                 assert.is_true(v == 1 or v == 2)
@@ -238,7 +238,7 @@ describe("List Module", function()
             randomizer.setSeed(13)
             local objs = { {name=""}, {name=""}, {name=""} }
             local pool = randomizer.list({"X", "Y", "Z"})
-            pool:randomize(objs, "name", { consumable = true, regenerate = false })
+            pool:useToRandomize(objs, "name", { consumable = true, regenerate = false })
             local names = { objs[1].name, objs[2].name, objs[3].name }
             table.sort(names)
             assert.are.same({"X","Y","Z"}, names)
