@@ -52,6 +52,40 @@ function Group.groupBy(list, keyExtractor)
     return Group.new(grouped)
 end
 
+-- Static factory method: Create a group from objects by grouping on one field and extracting another
+-- objects: table of objects
+-- groupField: string name of field to group by
+-- valueField: string name of field to extract as values (optional, if nil uses whole objects)
+-- Returns new Group with lists of values grouped by groupField
+function Group.fromField(objects, groupField, valueField)
+    assert(type(objects) == "table", "Expected table, got " .. type(objects))
+    assert(type(groupField) == "string", "Expected string for groupField, got " .. type(groupField))
+    if valueField ~= nil then
+        assert(type(valueField) == "string", "Expected string or nil for valueField, got " .. type(valueField))
+    end
+
+    local grouped = {}
+
+    for _, obj in ipairs(objects) do
+        if type(obj) == "table" and obj[groupField] ~= nil then
+            local key = obj[groupField]
+            if not grouped[key] then
+                grouped[key] = {}
+            end
+
+            if valueField then
+                if obj[valueField] ~= nil then
+                    table.insert(grouped[key], obj[valueField])
+                end
+            else
+                table.insert(grouped[key], obj)
+            end
+        end
+    end
+
+    return Group.new(grouped)
+end
+
 -- Add a list to the group
 -- Returns self for chaining
 function Group:add(key, list)

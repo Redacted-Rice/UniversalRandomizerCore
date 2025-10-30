@@ -24,6 +24,14 @@ randomizer.groupBy = function(list, keyExtractor)
     return Group.groupBy(list, keyExtractor)
 end
 
+randomizer.listFromField = function(objects, fieldName)
+    return List.fromField(objects, fieldName)
+end
+
+randomizer.groupFromField = function(objects, groupField, valueField)
+    return Group.fromField(objects, groupField, valueField)
+end
+
 -- Standalone helper functions for working with plain tables
 randomizer.shuffle = function(tbl)
     return utils.shuffle(utils.deepCopy(tbl))

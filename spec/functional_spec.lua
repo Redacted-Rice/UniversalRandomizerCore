@@ -20,14 +20,11 @@ describe("Functional Tests - Typical Use Cases", function()
                 {id = "item_004", name = "Boots", rarity = "legendary"}
             }
 
-            -- Extract existing rarities to create the pool
-            local existingRarities = {}
-            for i, item in ipairs(items) do
-                table.insert(existingRarities, item.rarity)
-            end
+            -- Create a consumable pool directly from the rarity field
+            local rarityPool = randomizer.listFromField(items, "rarity")
 
-            -- Create a consumable pool from these rarities
-            local rarityPool = randomizer.list(existingRarities)
+            -- Verify pool was created correctly
+            assert.are.equal(4, rarityPool:size())
 
             -- Randomize the rarities in place using randomizer.randomize with options
             randomizer.randomize(items, rarityPool, "rarity", {consumable = true, regenerate = false})
@@ -38,8 +35,10 @@ describe("Functional Tests - Typical Use Cases", function()
                 table.insert(newRarities, item.rarity)
             end
             table.sort(newRarities)
-            table.sort(existingRarities)
-            assert.are.same(existingRarities, newRarities, "All original rarities should be present exactly once")
+
+            local expectedRarities = {"common", "legendary", "rare", "uncommon"}
+            table.sort(expectedRarities)
+            assert.are.same(expectedRarities, newRarities, "All original rarities should be present exactly once")
 
             -- Verify other fields are unchanged
             assert.are.equal("Sword", items[1].name)
@@ -51,47 +50,71 @@ describe("Functional Tests - Typical Use Cases", function()
         it("should randomize damage values based on item rarity where higher rarity means higher damage", function()
             randomizer.setSeed(99)
 
-            -- Start with items that have a rarity and damage
+            -- Start with items that have a rarity and damage, with multiple items per rarity
             local items = {
                 {name = "Iron Sword", rarity = "common", damage = 10},
+                {name = "Rusty Dagger", rarity = "common", damage = 8},
+                {name = "Wooden Club", rarity = "common", damage = 9},
                 {name = "Steel Axe", rarity = "uncommon", damage = 15},
+                {name = "Silver Mace", rarity = "uncommon", damage = 18},
+                {name = "Bronze Spear", rarity = "uncommon", damage = 16},
                 {name = "Mithril Blade", rarity = "rare", damage = 20},
-                {name = "Dragon Slayer", rarity = "legendary", damage = 25}
+                {name = "Enchanted Bow", rarity = "rare", damage = 28},
+                {name = "Crystal Staff", rarity = "rare", damage = 25},
+                {name = "Dragon Slayer", rarity = "legendary", damage = 35},
+                {name = "Excalibur", rarity = "legendary", damage = 40},
+                {name = "Godslayer", rarity = "legendary", damage = 45}
             }
 
-            -- Create a reusable, non-consumable grouped pool where damage increases by rarity
-            local damageByRarity = randomizer.group({
-                common = {8, 10, 12},           -- Low damage
-                uncommon = {15, 18, 20},        -- Medium damage
-                rare = {25, 28, 30},            -- High damage
-                legendary = {35, 40, 45}        -- Very high damage
-            }):removeDuplicates()
+            -- Create a grouped pool directly from the items, grouping by rarity and extracting damage
+            local damageByRarity = randomizer.groupFromField(items, "rarity", "damage")
+
+            -- Verify pools were created with correct sizes
+            assert.are.equal(3, damageByRarity:get("common"):size())
+            assert.are.equal(3, damageByRarity:get("uncommon"):size())
+            assert.are.equal(3, damageByRarity:get("rare"):size())
+            assert.are.equal(3, damageByRarity:get("legendary"):size())
 
             -- Randomize damage based on rarity using randomizer.randomize API
             randomizer.randomize(items, damageByRarity, function(item)
                 return item.rarity
             end, "damage")
 
-            -- Verify damage values match their rarity tiers
+            -- Verify damage values match their rarity tiers and we see the full range
+            local commonDamages = {}
+            local uncommonDamages = {}
+            local rareDamages = {}
+            local legendaryDamages = {}
+
             for _, item in ipairs(items) do
                 if item.rarity == "common" then
-                    assert.is_true(item.damage >= 8 and item.damage <= 12,
-                        "Common items should have low damage")
+                    table.insert(commonDamages, item.damage)
+                    assert.is_true(item.damage >= 8 and item.damage <= 10,
+                        "Common items should have low damage (8-10)")
                 elseif item.rarity == "uncommon" then
-                    assert.is_true(item.damage >= 15 and item.damage <= 20,
-                        "Uncommon items should have medium damage")
+                    table.insert(uncommonDamages, item.damage)
+                    assert.is_true(item.damage >= 15 and item.damage <= 18,
+                        "Uncommon items should have medium damage (15-18)")
                 elseif item.rarity == "rare" then
-                    assert.is_true(item.damage >= 25 and item.damage <= 30,
-                        "Rare items should have high damage")
+                    table.insert(rareDamages, item.damage)
+                    assert.is_true(item.damage >= 20 and item.damage <= 28,
+                        "Rare items should have high damage (20-28)")
                 elseif item.rarity == "legendary" then
+                    table.insert(legendaryDamages, item.damage)
                     assert.is_true(item.damage >= 35 and item.damage <= 45,
-                        "Legendary items should have very high damage")
+                        "Legendary items should have very high damage (35-45)")
                 end
             end
 
+            -- Verify we got all the items we expected for each rarity
+            assert.are.equal(3, #commonDamages)
+            assert.are.equal(3, #uncommonDamages)
+            assert.are.equal(3, #rareDamages)
+            assert.are.equal(3, #legendaryDamages)
+
             -- Verify names are unchanged
             assert.are.equal("Iron Sword", items[1].name)
-            assert.are.equal("Steel Axe", items[2].name)
+            assert.are.equal("Steel Axe", items[4].name)
         end)
     end)
 

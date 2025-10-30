@@ -17,6 +17,24 @@ function List.new(items)
     return self
 end
 
+-- Static factory method: Create a list from a field of objects
+-- objects: table of objects
+-- fieldName: string name of field to extract
+-- Returns new List with values from that field
+function List.fromField(objects, fieldName)
+    assert(type(objects) == "table", "Expected table, got " .. type(objects))
+    assert(type(fieldName) == "string", "Expected string for fieldName, got " .. type(fieldName))
+
+    local values = {}
+    for _, obj in ipairs(objects) do
+        if type(obj) == "table" and obj[fieldName] ~= nil then
+            table.insert(values, obj[fieldName])
+        end
+    end
+
+    return List.new(values)
+end
+
 -- Filter items based on predicate function
 -- Returns new List with filtered items
 function List:filter(predicate)
