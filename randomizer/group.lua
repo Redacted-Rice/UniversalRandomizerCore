@@ -140,61 +140,91 @@ end
 -- Modifies targetList in place
 -- Returns the modified targetList for convenience
 -- Optional setter: function(item, value, index) to set value on item, or string field name
-function Group:randomize(targetList, selectorFn, setter)
+-- Optional options: table with consumable (boolean) and regenerate (boolean) flags
+function Group:randomize(targetList, selectorFn, setter, options)
     assert(type(targetList) == "table", "Expected table, got " .. type(targetList))
     assert(type(selectorFn) == "function", "Expected function, got " .. type(selectorFn))
 
-    if setter then
-        -- Setter can be a field name (string) or a function
-        if type(setter) == "string" then
-            local fieldName = setter
-            for i, item in ipairs(targetList) do
-                local key = selectorFn(item, i)
-                local list = self.lists[key]
+    -- Parse options (can be passed as 3rd arg when no setter, or 4th arg with setter)
+    local consumable = false
+    local regenerate = false
+    local actualSetter = setter
+    local actualOptions = options
 
-                if not list then
-                    error("No list found for key '" .. tostring(key) .. "' at index " .. i)
+    -- If setter is a table, it might be the options
+    if type(setter) == "table" and options == nil then
+        actualOptions = setter
+        actualSetter = nil
+    end
+
+    if actualOptions ~= nil then
+        assert(type(actualOptions) == "table", "Options must be a table, got " .. type(actualOptions))
+        consumable = actualOptions.consumable or false
+        regenerate = actualOptions.regenerate or false
+    end
+
+    -- For consumable pools, create working copies for each group
+    local workingPools = {}
+    if consumable then
+        for key, list in pairs(self.lists) do
+            workingPools[key] = utils.deepCopy(list.items)
+        end
+    end
+
+    -- Helper function to get a random element from a specific group
+    local function getRandomElementFromGroup(key)
+        local list = self.lists[key]
+
+        if not list then
+            error("No list found for key '" .. tostring(key) .. "'")
+        end
+
+        if list:isEmpty() then
+            error("List for key '" .. tostring(key) .. "' is empty")
+        end
+
+        if consumable then
+            local pool = workingPools[key]
+            if #pool == 0 then
+                if regenerate then
+                    -- Refill this group's pool
+                    pool = utils.deepCopy(list.items)
+                    workingPools[key] = pool
+                else
+                    error("Pool for key '" .. tostring(key) .. "' depleted and regenerate is false")
                 end
-
-                if list:isEmpty() then
-                    error("List for key '" .. tostring(key) .. "' is empty")
-                end
-
-                targetList[i][fieldName] = utils.randomElement(list.items)
             end
-        elseif type(setter) == "function" then
+            -- Remove and return a random element
+            local index = math.random(1, #pool)
+            local element = pool[index]
+            table.remove(pool, index)
+            return element
+        else
+            return utils.randomElement(list.items)
+        end
+    end
+
+    if actualSetter then
+        -- Setter can be a field name (string) or a function
+        if type(actualSetter) == "string" then
+            local fieldName = actualSetter
             for i, item in ipairs(targetList) do
                 local key = selectorFn(item, i)
-                local list = self.lists[key]
-
-                if not list then
-                    error("No list found for key '" .. tostring(key) .. "' at index " .. i)
-                end
-
-                if list:isEmpty() then
-                    error("List for key '" .. tostring(key) .. "' is empty")
-                end
-
-                setter(targetList[i], utils.randomElement(list.items), i)
+                targetList[i][fieldName] = getRandomElementFromGroup(key)
+            end
+        elseif type(actualSetter) == "function" then
+            for i, item in ipairs(targetList) do
+                local key = selectorFn(item, i)
+                actualSetter(targetList[i], getRandomElementFromGroup(key), i)
             end
         else
-            error("Setter must be a string (field name) or function, got " .. type(setter))
+            error("Setter must be a string (field name) or function, got " .. type(actualSetter))
         end
     else
         -- Original behavior: replace array elements directly
         for i, item in ipairs(targetList) do
             local key = selectorFn(item, i)
-            local list = self.lists[key]
-
-            if not list then
-                error("No list found for key '" .. tostring(key) .. "' at index " .. i)
-            end
-
-            if list:isEmpty() then
-                error("List for key '" .. tostring(key) .. "' is empty")
-            end
-
-            targetList[i] = utils.randomElement(list.items)
+            targetList[i] = getRandomElementFromGroup(key)
         end
     end
 

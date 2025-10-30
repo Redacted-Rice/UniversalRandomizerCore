@@ -86,20 +86,58 @@ end
 -- Modifies targetList in place
 -- Returns the modified targetList for convenience
 -- Optional setter: function(item, value) to set value on item, or string field name
-function List:randomize(targetList, setter)
+-- Optional options: table with consumable (boolean) and regenerate (boolean) flags
+function List:randomize(targetList, setter, options)
     assert(type(targetList) == "table", "Expected table, got " .. type(targetList))
     assert(#self.items > 0, "Cannot randomize from empty list")
+
+    -- Parse options
+    local consumable = false
+    local regenerate = false
+
+    if options ~= nil then
+        assert(type(options) == "table", "Options must be a table, got " .. type(options))
+        consumable = options.consumable or false
+        regenerate = options.regenerate or false
+    end
+
+    -- For consumable pools, create a working copy that we'll remove items from
+    local workingPool = nil
+    if consumable then
+        workingPool = utils.deepCopy(self.items)
+    end
+
+    -- Helper function to get a random element (with or without consumption)
+    local function getRandomElement()
+        if consumable then
+            if #workingPool == 0 then
+                if regenerate then
+                    -- Refill the pool
+                    workingPool = utils.deepCopy(self.items)
+                else
+                    error("Pool depleted and regenerate is false")
+                end
+            end
+            -- Remove and return a random element
+            local index = math.random(1, #workingPool)
+            local element = workingPool[index]
+            table.remove(workingPool, index)
+            return element
+        else
+            return utils.randomElement(self.items)
+        end
+    end
 
     if setter then
         -- Setter can be a field name (string) or a function
         if type(setter) == "string" then
             local fieldName = setter
             for i = 1, #targetList do
-                targetList[i][fieldName] = utils.randomElement(self.items)
+                targetList[i][fieldName] = getRandomElement()
             end
         elseif type(setter) == "function" then
             for i = 1, #targetList do
-                setter(targetList[i], utils.randomElement(self.items), i)
+                setter(targetList[i], getRandomElement(), i)
             end
         else
             error("Setter must be a string (field name) or function, got " .. type(setter))
@@ -107,7 +145,7 @@ function List:randomize(targetList, setter)
     else
         -- Original behavior: replace array elements directly
         for i = 1, #targetList do
-            targetList[i] = utils.randomElement(self.items)
+            targetList[i] = getRandomElement()
         end
     end
 
