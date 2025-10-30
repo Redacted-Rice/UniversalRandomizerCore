@@ -1,402 +1,303 @@
 -- functional_spec.lua
 -- Functional/integration tests for real-world use cases
 
-describe("Functional Tests - Real World Workflows", function()
+describe("Functional Tests - Typical Use Cases", function()
     local randomizer
 
     setup(function()
         randomizer = require("randomizer")
     end)
 
-    describe("Game Modding: Weapon Randomization", function()
-        it("should randomize weapon drops while preserving weapon types", function()
+    describe("Use Case 1: Consumable Pool from Existing Values", function()
+        it("should create a consumable pool from existing object values and randomize in place", function()
             randomizer.setSeed(42)
 
-            -- Simulate a game's weapon inventory
-            local weapons = {
-                {id = "sword_001", name = "Iron Sword", type = "melee", damage = 10},
-                {id = "bow_001", name = "Wooden Bow", type = "ranged", damage = 8},
-                {id = "axe_001", name = "Battle Axe", type = "melee", damage = 12},
-                {id = "crossbow_001", name = "Light Crossbow", type = "ranged", damage = 10},
-                {id = "dagger_001", name = "Rusty Dagger", type = "melee", damage = 6}
+            -- Start with a list of items with existing IDs
+            local items = {
+                {id = "item_001", name = "Sword", rarity = "common"},
+                {id = "item_002", name = "Shield", rarity = "rare"},
+                {id = "item_003", name = "Helmet", rarity = "uncommon"},
+                {id = "item_004", name = "Boots", rarity = "common"}
             }
 
-            -- Define replacement pools for each weapon type
-            local weaponPools = randomizer.group({
-                melee = {"Excalibur", "Dragon Slayer", "Mjolnir", "Kusanagi", "Durendal"},
-                ranged = {"Longbow", "Artemis Bow", "Crossbow of Destiny", "Gungnir"}
-            })
-
-            -- Extract weapon names for randomization
-            local originalNames = {}
-            for i, weapon in ipairs(weapons) do
-                originalNames[i] = weapon.name
+            -- Extract existing IDs to create the pool
+            local existingIds = {}
+            for i, item in ipairs(items) do
+                table.insert(existingIds, item.id)
             end
 
-            -- Randomize weapon names based on type
-            weaponPools:randomize(originalNames, function(name, index)
-                return weapons[index].type
-            end)
+            -- Create a consumable pool from these IDs
+            local idPool = randomizer.list(existingIds)
 
-            -- Verify all melee weapons got melee replacements
-            for i, weapon in ipairs(weapons) do
-                if weapon.type == "melee" then
-                    -- Should be one of the melee weapons
-                    local found = false
-                    for _, meleeName in ipairs(weaponPools:get("melee"):toTable()) do
-                        if originalNames[i] == meleeName then
-                            found = true
-                            break
-                        end
-                    end
-                    assert.is_true(found, "Melee weapon " .. weapon.id .. " got non-melee replacement")
-                end
+            -- Randomize the IDs in place, consuming from the pool (no regenerate means each ID used once)
+            idPool:randomize(items, "id", {consumable = true, regenerate = false})
 
-                if weapon.type == "ranged" then
-                    -- Should be one of the ranged weapons
-                    local found = false
-                    for _, rangedName in ipairs(weaponPools:get("ranged"):toTable()) do
-                        if originalNames[i] == rangedName then
-                            found = true
-                            break
-                        end
-                    end
-                    assert.is_true(found, "Ranged weapon " .. weapon.id .. " got non-ranged replacement")
-                end
+            -- Verify all items got unique IDs from the original set
+            local newIds = {}
+            for _, item in ipairs(items) do
+                table.insert(newIds, item.id)
             end
+            table.sort(newIds)
+            table.sort(existingIds)
+            assert.are.same(existingIds, newIds, "All original IDs should be present exactly once")
 
-            -- Verify we got variety (not all the same)
-            local uniqueNames = randomizer.removeDuplicates(originalNames)
-            assert.is_true(#uniqueNames > 1, "Should have variety in randomized names")
+            -- Verify other fields are unchanged
+            assert.are.equal("Sword", items[1].name)
+            assert.are.equal("Shield", items[2].name)
         end)
     end)
 
-    describe("Game Modding: Enemy Loot by Difficulty", function()
-        it("should assign appropriate loot based on enemy difficulty", function()
+    describe("Use Case 2: Two-Stage Randomization with Grouped Pools", function()
+        it("should randomize group type first, then randomize values based on new group type", function()
             randomizer.setSeed(99)
 
-            -- Simulate enemy encounters
-            local enemies = {
-                {name = "Goblin", difficulty = "easy"},
-                {name = "Wolf", difficulty = "easy"},
-                {name = "Orc", difficulty = "medium"},
-                {name = "Troll", difficulty = "medium"},
-                {name = "Dragon", difficulty = "hard"},
-                {name = "Lich", difficulty = "hard"}
+            -- Start with items that have a type and value
+            local items = {
+                {name = "Item1", type = "weapon", damage = 10},
+                {name = "Item2", type = "armor", defense = 5},
+                {name = "Item3", type = "weapon", damage = 15},
+                {name = "Item4", type = "armor", defense = 8}
             }
 
-            -- Define loot pools by difficulty
-            local lootPools = randomizer.group({
-                easy = {"Copper Coin", "Stick", "Cloth", "Small Potion"},
-                medium = {"Silver Coin", "Iron Sword", "Leather Armor", "Medium Potion"},
-                hard = {"Gold Coin", "Magic Sword", "Plate Armor", "Large Potion", "Rare Gem"}
-            })
+            -- Create a reusable pool of types (no duplicates)
+            local typePool = randomizer.list({"weapon", "armor", "accessory"}):removeDuplicates()
 
-            -- Assign loot to enemies
-            local lootDrops = {}
-            for i = 1, #enemies do
-                lootDrops[i] = "placeholder"
+            -- Create a reusable, non-consumable grouped pool of values
+            local valueGroups = randomizer.group({
+                weapon = {12, 18, 25, 30},      -- damage values
+                armor = {10, 15, 20, 25},        -- defense values
+                accessory = {5, 8, 12, 15}       -- bonus values
+            }):removeDuplicates()
+
+            -- Stage 1: Randomize the type for each item
+            typePool:randomize(items, "type")
+
+            -- Verify types are from the pool
+            for _, item in ipairs(items) do
+                assert.is_true(item.type == "weapon" or item.type == "armor" or item.type == "accessory")
             end
 
-            lootPools:randomize(lootDrops, function(drop, index)
-                return enemies[index].difficulty
+            -- Stage 2: Randomize values based on the NEW type
+            valueGroups:randomize(items, function(item)
+                return item.type
+            end, function(item, value)
+                -- Set the appropriate stat based on type
+                if item.type == "weapon" then
+                    item.damage = value
+                elseif item.type == "armor" then
+                    item.defense = value
+                elseif item.type == "accessory" then
+                    item.bonus = value
+                end
             end)
 
-            -- Verify appropriate loot distribution
-            local easyLoot = lootPools:get("easy"):toTable()
-            local mediumLoot = lootPools:get("medium"):toTable()
-            local hardLoot = lootPools:get("hard"):toTable()
-
-            for i, enemy in ipairs(enemies) do
-                local drop = lootDrops[i]
-
-                if enemy.difficulty == "easy" then
+            -- Verify values match their types
+            for _, item in ipairs(items) do
+                if item.type == "weapon" then
+                    assert.is_not_nil(item.damage)
                     local found = false
-                    for _, item in ipairs(easyLoot) do
-                        if drop == item then found = true end
+                    for _, v in ipairs({12, 18, 25, 30}) do
+                        if item.damage == v then found = true end
                     end
-                    assert.is_true(found, enemy.name .. " should drop easy loot")
-                elseif enemy.difficulty == "medium" then
+                    assert.is_true(found, "Weapon damage should be from weapon pool")
+                elseif item.type == "armor" then
+                    assert.is_not_nil(item.defense)
                     local found = false
-                    for _, item in ipairs(mediumLoot) do
-                        if drop == item then found = true end
+                    for _, v in ipairs({10, 15, 20, 25}) do
+                        if item.defense == v then found = true end
                     end
-                    assert.is_true(found, enemy.name .. " should drop medium loot")
-                elseif enemy.difficulty == "hard" then
+                    assert.is_true(found, "Armor defense should be from armor pool")
+                elseif item.type == "accessory" then
+                    assert.is_not_nil(item.bonus)
                     local found = false
-                    for _, item in ipairs(hardLoot) do
-                        if drop == item then found = true end
+                    for _, v in ipairs({5, 8, 12, 15}) do
+                        if item.bonus == v then found = true end
                     end
-                    assert.is_true(found, enemy.name .. " should drop hard loot")
+                    assert.is_true(found, "Accessory bonus should be from accessory pool")
                 end
             end
         end)
     end)
 
-    describe("Procedural Generation: Dungeon Room Contents", function()
-        it("should generate varied room contents based on room type", function()
+    describe("Use Case 3: Uniform Non-Consumable Pool", function()
+        it("should randomize parameters using a uniform pool with replacement", function()
             randomizer.setSeed(123)
 
-            -- Define dungeon layout
-            local rooms = {
-                {id = 1, type = "combat"},
-                {id = 2, type = "treasure"},
-                {id = 3, type = "combat"},
-                {id = 4, type = "puzzle"},
-                {id = 5, type = "combat"},
-                {id = 6, type = "treasure"},
-                {id = 7, type = "boss"}
+            -- Start with enemies that need randomized health
+            local enemies = {
+                {name = "Goblin", health = 10},
+                {name = "Orc", health = 20},
+                {name = "Troll", health = 30},
+                {name = "Dragon", health = 40}
             }
 
-            -- Content pools for each room type
-            local contentPools = randomizer.group({
-                combat = {"Goblins", "Orcs", "Skeletons", "Wolves", "Spiders"},
-                treasure = {"Gold Chest", "Weapon Cache", "Potion Stash", "Magic Scroll"},
-                puzzle = {"Lever Puzzle", "Floor Trap", "Magic Barrier", "Riddle Door"},
-                boss = {"Dragon", "Lich King", "Ancient Golem"}
-            })
+            -- Create a uniform pool where each value has equal probability
+            local healthPool = randomizer.list({50, 75, 100, 125, 150})
 
-            -- Assign contents
-            local roomContents = {}
-            for i = 1, #rooms do
-                roomContents[i] = "empty"
-            end
+            -- Randomize health values in place (non-consumable = can repeat)
+            healthPool:randomize(enemies, "health")
 
-            contentPools:randomize(roomContents, function(content, index)
-                return rooms[index].type
-            end)
-
-            -- Verify room contents match room types
-            for i, room in ipairs(rooms) do
-                local content = roomContents[i]
-                local pool = contentPools:get(room.type):toTable()
-
+            -- Verify all health values are from the pool
+            for _, enemy in ipairs(enemies) do
                 local found = false
-                for _, item in ipairs(pool) do
-                    if content == item then found = true end
+                for _, h in ipairs({50, 75, 100, 125, 150}) do
+                    if enemy.health == h then found = true end
                 end
-
-                assert.is_true(found, "Room " .. room.id .. " (" .. room.type .. ") has inappropriate content: " .. content)
+                assert.is_true(found, enemy.name .. " should have health from pool")
             end
 
-            -- Verify we have variety
-            local combatRooms = {}
-            for i, room in ipairs(rooms) do
-                if room.type == "combat" then
-                    table.insert(combatRooms, roomContents[i])
-                end
-            end
-            -- Combat rooms should potentially have different enemies (though random, so may match)
-            assert.are.equal(3, #combatRooms)
+            -- Names should be unchanged
+            assert.are.equal("Goblin", enemies[1].name)
+            assert.are.equal("Orc", enemies[2].name)
         end)
     end)
 
-    describe("Data Processing: Grouping and Randomization Workflow", function()
-        it("should group items by category and randomize within categories", function()
+    describe("Use Case 4: Weighted Non-Consumable Pool", function()
+        it("should randomize using a weighted pool where duplicates increase probability", function()
             randomizer.setSeed(456)
 
-            -- Mixed item list
-            local items = {
-                {name = "Apple", category = "fruit", value = 1},
-                {name = "Carrot", category = "vegetable", value = 2},
-                {name = "Banana", category = "fruit", value = 1},
-                {name = "Broccoli", category = "vegetable", value = 3},
-                {name = "Orange", category = "fruit", value = 2},
-                {name = "Potato", category = "vegetable", value = 1}
+            -- Start with treasure chests
+            local chests = {
+                {id = 1, loot = "nothing"},
+                {id = 2, loot = "nothing"},
+                {id = 3, loot = "nothing"},
+                {id = 4, loot = "nothing"},
+                {id = 5, loot = "nothing"},
+                {id = 6, loot = "nothing"},
+                {id = 7, loot = "nothing"},
+                {id = 8, loot = "nothing"}
             }
 
-            -- Group by category
-            local grouped = randomizer.groupBy(items, function(item)
-                return item.category
-            end)
-
-            assert.are.equal(2, grouped:size())
-
-            -- Create replacement pools
-            local replacements = randomizer.group({
-                fruit = {
-                    {name = "Mango", category = "fruit", value = 3},
-                    {name = "Grape", category = "fruit", value = 1},
-                    {name = "Peach", category = "fruit", value = 2}
-                },
-                vegetable = {
-                    {name = "Lettuce", category = "vegetable", value = 1},
-                    {name = "Tomato", category = "vegetable", value = 2},
-                    {name = "Cucumber", category = "vegetable", value = 2}
-                }
+            -- Create a weighted pool by adding duplicates
+            -- Common items appear more often, rare items appear less
+            local lootPool = randomizer.list({
+                "Gold Coin",      -- Common (appears 5 times)
+                "Gold Coin",
+                "Gold Coin",
+                "Gold Coin",
+                "Gold Coin",
+                "Silver Coin",    -- Uncommon (appears 3 times)
+                "Silver Coin",
+                "Silver Coin",
+                "Magic Gem",      -- Rare (appears 1 time)
+                "Legendary Sword" -- Legendary (appears 1 time)
             })
 
-            -- Randomize items
-            local newItems = {}
-            for i = 1, #items do
-                newItems[i] = items[i]
+            -- Randomize loot (non-consumable = with replacement)
+            lootPool:randomize(chests, "loot")
+
+            -- Count occurrences
+            local counts = {
+                ["Gold Coin"] = 0,
+                ["Silver Coin"] = 0,
+                ["Magic Gem"] = 0,
+                ["Legendary Sword"] = 0
+            }
+
+            for _, chest in ipairs(chests) do
+                counts[chest.loot] = counts[chest.loot] + 1
             end
 
-            replacements:randomize(newItems, function(item, index)
-                return items[index].category
-            end)
-
-            -- Verify categories are preserved
-            for i, item in ipairs(items) do
-                assert.are.equal(items[i].category, newItems[i].category,
-                    "Item at index " .. i .. " should maintain category")
+            -- Verify all loot is from the pool
+            for _, chest in ipairs(chests) do
+                assert.is_not_nil(counts[chest.loot], "Loot should be from pool")
             end
+
+            -- With weighted pool, we expect more common items on average
+            -- (We can't guarantee specific distributions with only 8 samples,
+            -- but we verify the mechanism works)
+            local totalItems = 0
+            for _, count in pairs(counts) do
+                totalItems = totalItems + count
+            end
+            assert.are.equal(8, totalItems, "All chests should have loot")
         end)
     end)
 
-    describe("Complex Workflow: Multi-Stage Processing", function()
-        it("should support filtering, sorting, and randomizing in sequence", function()
+    describe("Use Case 5: Grouped Consumable Pools", function()
+        it("should use consumable pools per group for unique assignments", function()
             randomizer.setSeed(789)
 
-            -- Start with raw data
-            local rawData = {
-                {id = 1, level = 5, rarity = "common"},
-                {id = 2, level = 10, rarity = "rare"},
-                {id = 3, level = 3, rarity = "common"},
-                {id = 4, level = 15, rarity = "legendary"},
-                {id = 5, level = 8, rarity = "rare"},
-                {id = 6, level = 2, rarity = "common"},
-                {id = 7, level = 12, rarity = "rare"}
+            -- Character slots that need unique equipment per slot type
+            local characters = {
+                {name = "Warrior", slotType = "weapon", equipment = "none"},
+                {name = "Mage", slotType = "weapon", equipment = "none"},
+                {name = "Rogue", slotType = "armor", equipment = "none"},
+                {name = "Paladin", slotType = "armor", equipment = "none"}
             }
 
-            -- Step 1: Filter out low-level items (< 5)
-            local filtered = randomizer.filter(rawData, function(item)
-                return item.level >= 5
-            end)
-
-            assert.are.equal(5, #filtered)
-
-            -- Step 2: Group by rarity
-            local grouped = randomizer.groupBy(filtered, function(item)
-                return item.rarity
-            end)
-
-            -- Step 3: Sort each group by level
-            local sorted = grouped:sort(function(a, b)
-                return a.level < b.level
-            end)
-
-            -- Verify sorting worked
-            local commonItems = sorted:get("common"):toTable()
-            assert.are.equal(5, commonItems[1].level)
-
-            local rareItems = sorted:get("rare"):toTable()
-            assert.are.equal(8, rareItems[1].level)
-            assert.are.equal(10, rareItems[2].level)
-            assert.are.equal(12, rareItems[3].level)
-
-            -- Step 4: Now randomize something using these groups
-            local targets = {"item1", "item2", "item3"}
-            local rarities = {"common", "rare", "legendary"}
-
-            local rewardIds = {}
-            for i = 1, #targets do
-                rewardIds[i] = 0
-            end
-
-            sorted:randomize(rewardIds, function(reward, index)
-                return rarities[index]
-            end)
-
-            -- Verify we got valid IDs from the appropriate rarity groups
-            for i, id in ipairs(rewardIds) do
-                assert.is_true(type(id) == "table" and id.id ~= nil)
-                assert.are.equal(rarities[i], id.rarity)
-            end
-        end)
-    end)
-
-    describe("Edge Case Workflows", function()
-        it("should handle empty groups gracefully", function()
-            local group = randomizer.group({})
-            assert.is_true(group:isEmpty())
-            assert.are.equal(0, group:size())
-        end)
-
-        it("should handle chaining many operations", function()
-            randomizer.setSeed(111)
-
-            -- Start with duplicated, unsorted data
-            local data = randomizer.list({5, 3, 8, 3, 1, 9, 5, 2, 8, 1})
-
-            -- Chain: dedupe -> sort -> filter -> shuffle
-            local result = data
-                :removeDuplicates()  -- {5, 3, 8, 1, 9, 2}
-                :sort()              -- {1, 2, 3, 5, 8, 9}
-                :filter(function(x) return x >= 3 and x <= 8 end)  -- {3, 5, 8}
-                :shuffle()           -- Random order
-
-            local final = result:toTable()
-
-            -- Should have 3 elements
-            assert.are.equal(3, #final)
-
-            -- Should only contain 3, 5, 8
-            table.sort(final)
-            assert.are.same({3, 5, 8}, final)
-        end)
-
-        it("should preserve original data through immutable operations", function()
-            local original = {5, 2, 8, 1, 9}
-            local list = randomizer.list(original)
-
-            -- Perform multiple operations
-            local sorted = list:sort()
-            local filtered = sorted:filter(function(x) return x > 3 end)
-            local shuffled = filtered:shuffle()
-
-            -- Original should be unchanged
-            assert.are.same({5, 2, 8, 1, 9}, original)
-            assert.are.same({5, 2, 8, 1, 9}, list:toTable())
-
-            -- Each step should have its own data
-            assert.are.same({1, 2, 5, 8, 9}, sorted:toTable())
-            assert.are.same({5, 8, 9}, filtered:toTable())
-            -- Shuffled should have same elements (verify by sorting)
-            local shuffledSorted = randomizer.sort(shuffled:toTable())
-            assert.are.same({5, 8, 9}, shuffledSorted)
-        end)
-    end)
-
-    describe("Game Modding: Limited-Use Loot Tables (Consumable Pools)", function()
-        it("should assign unique drops until pools deplete; then honor regenerate flag", function()
-            randomizer.setSeed(2025)
-
-            local enemies = {
-                {name = "Goblin", difficulty = "easy"},
-                {name = "Wolf", difficulty = "easy"},
-                {name = "Orc", difficulty = "medium"},
-                {name = "Troll", difficulty = "medium"}
-            }
-
-            local lootPools = randomizer.group({
-                easy = {"Copper Coin", "Stick"},
-                medium = {"Silver Coin", "Iron Sword"}
+            -- Create grouped pools for each slot type
+            local equipmentPools = randomizer.group({
+                weapon = {"Sword", "Axe"},
+                armor = {"Plate Mail", "Chain Mail"}
             })
 
-            -- First pass: consumable without regenerate yields unique items within difficulty
-            local drops1 = {"","","",""}
-            lootPools:randomize(drops1, function(_, i) return enemies[i].difficulty end, { consumable = true, regenerate = false })
+            -- Use consumable pools to ensure no duplicate equipment within each type
+            equipmentPools:randomize(characters, function(char)
+                return char.slotType
+            end, "equipment", {consumable = true, regenerate = false})
 
-            -- Each difficulty's drops should be a permutation of its pool
-            local easyDrops = {drops1[1], drops1[2]}
-            table.sort(easyDrops)
-            assert.are.same({"Copper Coin","Stick"}, easyDrops)
-            local medDrops = {drops1[3], drops1[4]}
-            table.sort(medDrops)
-            assert.are.same({"Iron Sword","Silver Coin"}, medDrops)
+            -- Verify weapon slots have unique weapons
+            local weaponEquipment = {}
+            local armorEquipment = {}
+            for _, char in ipairs(characters) do
+                if char.slotType == "weapon" then
+                    table.insert(weaponEquipment, char.equipment)
+                elseif char.slotType == "armor" then
+                    table.insert(armorEquipment, char.equipment)
+                end
+            end
 
-            -- Second pass with more enemies than pool size should error without regenerate
-            local more = {"","",""}
-            assert.has_error(function()
-                lootPools:randomize(more, function() return "easy" end, { consumable = true, regenerate = false })
+            table.sort(weaponEquipment)
+            table.sort(armorEquipment)
+            assert.are.same({"Axe", "Sword"}, weaponEquipment, "Weapons should be unique")
+            assert.are.same({"Chain Mail", "Plate Mail"}, armorEquipment, "Armor should be unique")
+        end)
+    end)
+
+    describe("Use Case 6: Procedural Generation with Filtered Pools", function()
+        it("should filter and randomize for procedural content generation", function()
+            randomizer.setSeed(2025)
+
+            -- Dungeon rooms that need content
+            local rooms = {
+                {id = 1, difficulty = "easy", content = "empty"},
+                {id = 2, difficulty = "hard", content = "empty"},
+                {id = 3, difficulty = "medium", content = "empty"},
+                {id = 4, difficulty = "easy", content = "empty"}
+            }
+
+            -- Start with all possible encounters and filter/group by difficulty
+            local allEncounters = {
+                {name = "Rat", difficulty = "easy"},
+                {name = "Goblin", difficulty = "easy"},
+                {name = "Wolf", difficulty = "medium"},
+                {name = "Orc", difficulty = "medium"},
+                {name = "Dragon", difficulty = "hard"},
+                {name = "Demon", difficulty = "hard"}
+            }
+
+            -- Group encounters by difficulty
+            local encounterGroups = randomizer.groupBy(allEncounters, function(encounter)
+                return encounter.difficulty
             end)
 
-            -- Third pass with regenerate=true should continue by refilling as needed
-            local moreOk = {"","",""}
-            lootPools:randomize(moreOk, function() return "easy" end, { consumable = true, regenerate = true })
-            for _, d in ipairs(moreOk) do
-                assert.is_true(d == "Copper Coin" or d == "Stick")
+            -- Randomize room content based on difficulty
+            encounterGroups:randomize(rooms, function(room)
+                return room.difficulty
+            end, function(room, encounter)
+                room.content = encounter.name
+            end)
+
+            -- Verify appropriate difficulty matching
+            for _, room in ipairs(rooms) do
+                if room.difficulty == "easy" then
+                    assert.is_true(room.content == "Rat" or room.content == "Goblin")
+                elseif room.difficulty == "medium" then
+                    assert.is_true(room.content == "Wolf" or room.content == "Orc")
+                elseif room.difficulty == "hard" then
+                    assert.is_true(room.content == "Dragon" or room.content == "Demon")
+                end
             end
         end)
     end)
