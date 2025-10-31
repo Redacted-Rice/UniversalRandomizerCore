@@ -138,6 +138,35 @@ function utils.isArray(tbl)
     return count == #tbl
 end
 
+-- Extract a value using either a field name or a function
+-- subject: the table/object to extract from
+-- extractor: string (field/method name) or function
+-- ...: additional arguments passed to the extractor when it is a function
+function utils.extractValue(subject, extractor, ...)
+    local extractorType = type(extractor)
+    assert(extractorType == "string" or extractorType == "function",
+        "Expected string or function for extractor, got " .. extractorType)
+
+    if extractorType == "string" then
+        -- Accessor may be available via table field, metatable, or userdata
+        local ok, member = pcall(function()
+            return subject[extractor]
+        end)
+
+        if not ok or member == nil then
+            return nil
+        end
+
+        if type(member) == "function" then
+            return member(subject, ...)
+        end
+
+        return member
+    end
+
+    return extractor(subject, ...)
+end
+
 return utils
 
 

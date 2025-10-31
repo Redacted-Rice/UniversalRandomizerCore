@@ -59,26 +59,35 @@ end
 -- Returns new Group with lists of values grouped by groupField
 function Group.fromField(objects, groupField, valueField)
     assert(type(objects) == "table", "Expected table, got " .. type(objects))
-    assert(type(groupField) == "string", "Expected string for groupField, got " .. type(groupField))
+
+    local groupFieldType = type(groupField)
+    assert(groupFieldType == "string" or groupFieldType == "function",
+        "Expected string or function for groupField, got " .. groupFieldType)
+
+    local valueFieldType = type(valueField)
     if valueField ~= nil then
-        assert(type(valueField) == "string", "Expected string or nil for valueField, got " .. type(valueField))
+        assert(valueFieldType == "string" or valueFieldType == "function",
+            "Expected string, function, or nil for valueField, got " .. valueFieldType)
     end
 
     local grouped = {}
 
     for _, obj in ipairs(objects) do
-        if type(obj) == "table" and obj[groupField] ~= nil then
-            local key = obj[groupField]
+        local key = utils.extractValue(obj, groupField)
+
+        if key ~= nil then
             if not grouped[key] then
                 grouped[key] = {}
             end
 
-            if valueField then
-                if obj[valueField] ~= nil then
-                    table.insert(grouped[key], obj[valueField])
-                end
+            local value
+            if valueField == nil then
+                value = obj
             else
-                table.insert(grouped[key], obj)
+                value = utils.extractValue(obj, valueField, key)
+            end
+            if value ~= nil then
+                table.insert(grouped[key], value)
             end
         end
     end

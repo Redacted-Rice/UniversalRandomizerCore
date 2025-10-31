@@ -21,14 +21,18 @@ end
 -- objects: table of objects
 -- fieldName: string name of field to extract
 -- Returns new List with values from that field
-function List.fromField(objects, fieldName)
+function List.fromField(objects, fieldExtractor)
     assert(type(objects) == "table", "Expected table, got " .. type(objects))
-    assert(type(fieldName) == "string", "Expected string for fieldName, got " .. type(fieldName))
+
+    local extractorType = type(fieldExtractor)
+    assert(extractorType == "string" or extractorType == "function",
+        "Expected string or function for field, got " .. extractorType)
 
     local values = {}
     for _, obj in ipairs(objects) do
-        if type(obj) == "table" and obj[fieldName] ~= nil then
-            table.insert(values, obj[fieldName])
+        local value = utils.extractValue(obj, fieldExtractor)
+        if value ~= nil then
+            table.insert(values, value)
         end
     end
 

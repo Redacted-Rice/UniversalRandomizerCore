@@ -40,6 +40,129 @@ describe("List Module", function()
         end)
     end)
 
+    describe("fromField", function()
+        it("should create a list using a field name", function()
+            local objects = {
+                {value = 10},
+                {value = 20},
+                {value = nil},
+                {other = 5}
+            }
+
+            local list = randomizer.listFromField(objects, "value")
+
+            assert.are.same({10, 20}, list:toTable())
+        end)
+
+        it("should create a list using a anonymous function", function()
+            local objects = {
+                {value = 2, include = true},
+                {value = 3, include = false},
+                {value = 4, include = true}
+            }
+
+            local list = randomizer.listFromField(objects, function(obj)
+                if obj.include then
+                    return obj.value
+                end
+            end)
+
+            assert.are.same({2, 4}, list:toTable())
+        end)
+
+        it("should create a list using a builtin function", function()
+            local Object = {}
+            Object.__index = Object
+
+            -- define a constructor
+            function Object:new(value)
+                local instance = setmetatable({}, Object)
+                instance.value = value or 0
+                return instance
+            end
+
+            -- define a method
+            function Object:getValue()
+                return self.value
+            end
+
+            local objects = {
+                Object:new(2),
+                Object:new(3),
+                Object:new(4)
+            }
+
+            local list = randomizer.listFromField(objects, Object.getValue)
+
+            assert.are.same({2, 3, 4}, list:toTable())
+        end)
+
+        it("should create a list using a wrapped function", function()
+            local Object = {}
+            Object.__index = Object
+
+            -- define a constructor
+            function Object:new(value)
+                local instance = setmetatable({}, Object)
+                instance.value = value or 0
+                return instance
+            end
+
+            -- define a method
+            function Object:getValue()
+                return self.value
+            end
+
+            local objects = {
+                Object:new(2),
+                Object:new(3),
+                Object:new(4)
+            }
+
+            local list = randomizer.listFromField(objects, function(obj)
+                return obj:getValue()
+            end)
+
+            assert.are.same({2, 3, 4}, list:toTable())
+        end)
+
+        it("should create a list using a function name", function()
+            local Object = {}
+            Object.__index = Object
+
+            -- define a constructor
+            function Object:new(value)
+                local instance = setmetatable({}, Object)
+                instance.value = value or 0
+                return instance
+            end
+
+            -- define a method
+            function Object:getValue()
+                return self.value
+            end
+
+            local objects = {
+                Object:new(2),
+                Object:new(3),
+                Object:new(4)
+            }
+
+            local list = randomizer.listFromField(objects, "getValue")
+
+            assert.are.same({2, 3, 4}, list:toTable())
+        end)
+
+        it("should error when extractor is not string or function", function()
+            local objects = {{value = 1}}
+
+            assert.has_error(function()
+                randomizer.listFromField(objects, 123)
+            end)
+        end)
+
+    end)
+
     describe("Filter", function()
         it("should filter items from a list", function()
             local list = randomizer.list({1, 2, 3, 4, 5, 6})

@@ -46,6 +46,132 @@ describe("Group Module", function()
         end)
     end)
 
+    describe("fromField", function()
+        it("should create a group using field names", function()
+            local objects = {
+                {type = "melee", name = "Sword"},
+                {type = "ranged", name = "Bow"},
+                {type = "melee", name = "Axe"},
+                {type = "magic", name = "Wand"},
+                {type = "magic"} -- Missing name should be skipped
+            }
+
+            local group = randomizer.groupFromField(objects, "type", "name")
+            local result = group:toTable()
+
+            assert.are.same({"Sword", "Axe"}, result.melee)
+            assert.are.same({"Bow"}, result.ranged)
+            assert.are.same({"Wand"}, result.magic)
+        end)
+
+        it("should create a group using getter functions", function()
+            local objects = {
+                {meta = {category = "A", stats = {damage = 10}}},
+                {meta = {category = "B", stats = {damage = 20}}},
+                {meta = {category = "A", stats = {damage = 15}}},
+                {meta = {category = nil, stats = {damage = 100}}}
+            }
+
+            local group = randomizer.groupFromField(
+                objects,
+                function(obj)
+                    return obj.meta and obj.meta.category
+                end,
+                function(obj, key)
+                    if obj.meta and obj.meta.stats then
+                        return obj.meta.stats.damage
+                    end
+                end
+            )
+
+            local result = group:toTable()
+            table.sort(result.A)
+            table.sort(result.B)
+
+            assert.are.same({10, 15}, result.A)
+            assert.are.same({20}, result.B)
+            assert.is_nil(result["nil"])
+        end)
+
+        it("should error when group extractor is invalid type", function()
+            local objects = {
+                {type = "A", value = 1}
+            }
+
+            assert.has_error(function()
+                randomizer.groupFromField(objects, 42, "value")
+            end)
+        end)
+
+        it("should create a group using method name strings", function()
+            local Entity = {}
+            Entity.__index = Entity
+
+            function Entity:new(category, damage)
+                local instance = setmetatable({}, Entity)
+                instance.category = category
+                instance.damage = damage
+                return instance
+            end
+
+            function Entity:getCategory()
+                return self.category
+            end
+
+            function Entity:getDamage()
+                return self.damage
+            end
+
+            local objects = {
+                Entity:new("A", 10),
+                Entity:new("B", 20),
+                Entity:new("A", 15)
+            }
+
+            local group = randomizer.groupFromField(objects, "getCategory", "getDamage")
+            local result = group:toTable()
+            table.sort(result.A)
+            table.sort(result.B)
+
+            assert.are.same({10, 15}, result.A)
+            assert.are.same({20}, result.B)
+        end)
+
+        it("should create a group using function references", function()
+            local Entity = {}
+            Entity.__index = Entity
+
+            function Entity:new(category, damage)
+                local instance = setmetatable({}, Entity)
+                instance.category = category
+                instance.damage = damage
+                return instance
+            end
+
+            function Entity:getCategory()
+                return self.category
+            end
+
+            function Entity:getDamage()
+                return self.damage
+            end
+
+            local objects = {
+                Entity:new("X", 5),
+                Entity:new("Y", 7),
+                Entity:new("X", 9)
+            }
+
+            local group = randomizer.groupFromField(objects, Entity.getCategory, Entity.getDamage)
+            local result = group:toTable()
+            table.sort(result.X)
+            table.sort(result.Y)
+
+            assert.are.same({5, 9}, result.X)
+            assert.are.same({7}, result.Y)
+        end)
+    end)
+
     describe("Add and Remove", function()
         it("should add and remove lists from group", function()
             local group = randomizer.group({

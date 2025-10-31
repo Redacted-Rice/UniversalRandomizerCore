@@ -1,4 +1,84 @@
 -- utils_spec.lua
+-- Unit tests for utility helpers
+
+local utils = require("randomizer.utils")
+
+describe("Utils Module", function()
+    describe("extractValue", function()
+        it("should extract a field value by name", function()
+            local obj = { value = 42 }
+            local result = utils.extractValue(obj, "value")
+            assert.are.equal(42, result)
+        end)
+
+        it("should call a method when using a method name", function()
+            local Object = {}
+            Object.__index = Object
+
+            function Object:new(value)
+                local instance = setmetatable({}, Object)
+                instance.value = value
+                return instance
+            end
+
+            function Object:getValue(multiplier)
+                return self.value * multiplier
+            end
+
+            local obj = Object:new(10)
+            local result = utils.extractValue(obj, "getValue", 3)
+            assert.are.equal(30, result)
+        end)
+
+        it("should invoke a provided function extractor", function()
+            local obj = { value = 5 }
+            local result = utils.extractValue(obj, function(subject, factor)
+                return subject.value + factor
+            end, 7)
+
+            assert.are.equal(12, result)
+        end)
+
+        it("should return nil when field is missing", function()
+            local obj = { other = 1 }
+            local result = utils.extractValue(obj, "value")
+            assert.is_nil(result)
+        end)
+
+        it("should return nil when subject is not a table for string extractor", function()
+            local result = utils.extractValue(123, "value")
+            assert.is_nil(result)
+        end)
+
+        it("should access values via __index metamethod", function()
+            local proxy = setmetatable({}, {
+                __index = function(_, key)
+                    if key == "getValue" then
+                        return function(self, multiplier)
+                            return (self.base or 7) * multiplier
+                        end
+                    elseif key == "value" then
+                        return 99
+                    end
+                end
+            })
+            proxy.base = 7
+
+            local methodResult = utils.extractValue(proxy, "getValue", 2)
+            assert.are.equal(14, methodResult)
+
+            local fieldResult = utils.extractValue(proxy, "value")
+            assert.are.equal(99, fieldResult)
+        end)
+
+        it("should error when extractor type is invalid", function()
+            assert.has_error(function()
+                utils.extractValue({}, 123)
+            end)
+        end)
+    end)
+end)
+-- utils_spec.lua
 -- Unit tests for utility functions
 
 describe("Utils Module", function()
