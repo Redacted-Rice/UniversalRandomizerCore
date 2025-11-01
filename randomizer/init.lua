@@ -11,11 +11,11 @@ local randomizer = {}
 randomizer.setSeed = utils.setSeed
 
 -- Expose constructors
-randomizer.list = function(items)
+function randomizer.list(items)
     return List.new(items)
 end
 
-randomizer.group = function(listsMap)
+function randomizer.group(listsMap)
     return Group.new(listsMap)
 end
 
@@ -71,7 +71,7 @@ end
 -- Universal randomize function that works with both List and Group
 -- For List: randomizer.randomize(targetList, list, setter, options)
 -- For Group: randomizer.randomize(targetList, group, selectorFn, setter, options)
-randomizer.randomize = function(targetList, source, ...)
+function randomizer.randomize(targetList, source, ...)
     assert(type(targetList) == "table", "Expected table for targetList, got " .. type(targetList))
 
     if utils.isList(source) then
@@ -83,7 +83,8 @@ randomizer.randomize = function(targetList, source, ...)
     elseif type(source) == "table" then
         -- Plain table, treat as list
         local list = List.new(source)
-        return list:useToRandomize(targetList, ...)
+        local result = list:useToRandomize(targetList, ...)
+        return result
     else
         error("Expected List, Group, or table for source, got " .. type(source))
     end
