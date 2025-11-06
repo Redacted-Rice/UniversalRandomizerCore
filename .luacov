@@ -1,0 +1,12 @@
+return {
+  -- limit coverage scope to randomizer code
+  include = {
+    "randomizer/",
+  },
+  -- exclude the spec files from coverage
+  exclude = {
+    "spec",
+  },
+  -- Auto-generate report after tests so we don't have to run luacov manually
+  runreport = true,  
+}

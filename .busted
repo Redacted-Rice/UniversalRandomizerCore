@@ -1,0 +1,24 @@
+return {
+  _all = {
+    lua = "lua",
+    verbose = true,
+    coverage = false,
+    output = "plainTerminal",
+    helper = "spec/clear_coverage.lua"
+  },
+  default = {
+    ROOT = {"spec"},
+    pattern = "_spec",
+  },
+  unit = {
+    ROOT = {"spec/unit"},
+    pattern = "_spec",
+  },
+  functional = {
+    ROOT = {"spec"},
+    pattern = "functional_spec",
+  }
+}
+
+
+

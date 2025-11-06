@@ -1,0 +1,10 @@
+Some potential future enhancements
+- Weighted random selection instead of duplicating values
+- Allow for calling a checker function to ensure pre/post conditions. May be redundant with being able to pass functions for getters/setters. Possibly use hooks for this?
+- Chained pools where it moves to another after one is exhausted. Not entirely sure on use case here
+- Allow for specifying pools with helper constructors - e.g. series of every even number between 0 & 50
+- Allow for specifying a min & max and a distribution and for it to automatically handle selecting a value in range (e.g. between 60 & 80 with a guassian distribution)
+
+Some more bug like changes or fixes
+- Better error reporting
+- Do hashing or better comparison for remove duplicate than serializing
