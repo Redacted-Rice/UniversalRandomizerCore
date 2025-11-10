@@ -77,15 +77,32 @@ end
 -- @return table capturing current values
 local function captureState(obj, fields)
 	local state = {}
+    -- TODO: Maybe instead have support for field names or getter functions. This could probably
+    -- be more flexible and dynamic then
 
 	-- Read each field value
 	for _, fieldName in ipairs(fields) do
-		-- Access field directly
-		local success, value = pcall(function()
-			return obj[fieldName]
+		local value = nil
+
+		-- Try getter method first
+		local getterName = "get" .. fieldName:sub(1,1):upper() .. fieldName:sub(2)
+		local getterSuccess, getterValue = pcall(function()
+			return obj[getterName](obj)
 		end)
 
-		if success then
+		if getterSuccess and getterValue ~= nil then
+			value = getterValue
+		else
+			-- Fall back to direct field access which only works for public fields
+			local directSuccess, directValue = pcall(function()
+				return obj[fieldName]
+			end)
+			if directSuccess and directValue ~= nil then
+				value = directValue
+			end
+		end
+
+		if value ~= nil then
 			state[fieldName] = value
 		end
 	end
@@ -150,6 +167,7 @@ function changedetector.detectChanges()
 
 	for entryName, entry in pairs(monitoredEntries) do
 		if not entry.snapshot then
+            -- Lua doesn't have continue... use goto instead
 			goto continue
 		end
 
