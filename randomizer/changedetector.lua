@@ -19,12 +19,14 @@ end
 --- Add a monitoring entry of objects
 -- @param entryName string name for this entry for tracking/logging
 -- @param objects array of objects to monitor
--- @param fieldsOrFn table of field names or function that takes first object and returns field names
+-- @param fields table of field specs. Each field spec can be:
+--   - A string name of a public field
+--   - A table with the key being the name to print and the value being the getter that returns the value
 -- @param identifierFn (optional) function that takes an object and returns a string identifier for
 -- logging. If not provided it will use to string
-function changedetector.monitor(entryName, objects, fieldsOrFn, identifierFn)
-	if not entryName or not objects or not fieldsOrFn then
-		print("Warning: Change detector: monitor requires entryName, objects, and fieldsOrFn")
+function changedetector.monitor(entryName, objects, fields, identifierFn)
+	if not entryName or not objects or not fields then
+		print("Warning: Change detector: monitor requires entryName, objects, and fields")
 		return
 	end
 
@@ -33,16 +35,9 @@ function changedetector.monitor(entryName, objects, fieldsOrFn, identifierFn)
 		return
 	end
 
-	-- Get the fields we will be monitoring
-	local fields
-	if type(fieldsOrFn) == "function" then
-		fields = fieldsOrFn(objects[1])
-		if not fields or type(fields) ~= "table" then
-			print("Warning: Change detector: fieldsOrFn function must return a table of field names")
-			return
-		end
-	else
-		fields = fieldsOrFn
+	if type(fields) ~= "table" then
+		print("Warning: Change detector: fields must be a table")
+		return
 	end
 
     -- store data for the entry
@@ -68,36 +63,35 @@ end
 
 --- Capture state of a single object
 -- @param obj the object to capture
--- @param fields table of field names to capture
+-- @param fields table of field specs (string field names or table mapping field name to getter)
 -- @return table capturing current values
 local function captureState(obj, fields)
 	local state = {}
-    -- TODO: Maybe instead have support for field names or getter functions. This could probably
-    -- be more flexible and dynamic then
 
 	-- Read each field value
-	for _, fieldName in ipairs(fields) do
+	for _, fieldSpec in ipairs(fields) do
+		local fieldName
 		local value = nil
 
-		-- Try getter method first
-		local getterName = "get" .. fieldName:sub(1,1):upper() .. fieldName:sub(2)
-		local getterSuccess, getterValue = pcall(function()
-			return obj[getterName](obj)
-		end)
-
-		if getterSuccess and getterValue ~= nil then
-			value = getterValue
-		else
-			-- Fall back to direct field access which only works for public fields
-			local directSuccess, directValue = pcall(function()
+		if type(fieldSpec) == "string" then
+			-- field name so call it directly
+			fieldName = fieldSpec
+			local success, result = pcall(function()
 				return obj[fieldName]
 			end)
-			if directSuccess and directValue ~= nil then
-				value = directValue
+			if success and result ~= nil then
+				value = result
+			end
+		elseif type(fieldSpec) == "table" and fieldSpec.name and fieldSpec.getter then
+			-- Field with getter function that nees to be called
+			fieldName = fieldSpec.name
+			local success, result = pcall(fieldSpec.getter, obj)
+			if success and result ~= nil then
+				value = result
 			end
 		end
 
-		if value ~= nil then
+		if value ~= nil and fieldName then
 			state[fieldName] = value
 		end
 	end
