@@ -7,18 +7,13 @@ local changedetector = {}
 
 -- Monitored data
 local monitoredEntries = {}
--- Are we logging to a file and if so what file
-local logfile = nil
--- are we logging to output/console
-local logToOutput = false
+-- Is change detection active
+local isChangeDetectionActive = false
 
 --- Configure global change detection settings
--- @param filepath string path to log file (deprecated - kept for backward compatibility)
--- @param logToConsole boolean whether to also output changes to console (default false)
-function changedetector.configure(filepath, logToConsole)
-	-- These settings are used to determine if change detection is active
-	logfile = filepath
-	logToOutput = logToConsole or false
+-- @param active boolean whether change detection is active. Defaults to false
+function changedetector.configure(active)
+	isChangeDetectionActive = active or false
 end
 
 --- Add a monitoring entry of objects
@@ -212,10 +207,10 @@ function changedetector.hasChanges(changes)
 	return next(changes) ~= nil
 end
 
---- Check if change detection is active (any output enabled)
+--- Check if change detection is active
 -- @return boolean
 function changedetector.isActive()
-	return (logfile ~= nil) or logToOutput
+	return isChangeDetectionActive
 end
 
 --- Get list of monitored entry names
