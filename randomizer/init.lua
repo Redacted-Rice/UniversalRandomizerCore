@@ -6,6 +6,7 @@
 local utils = require("randomizer.utils")
 local List = require("randomizer.list")
 local Group = require("randomizer.group")
+local changedetector = require("randomizer.changedetector")
 
 local randomizer = {}
 randomizer._VERSION = "0.9.0"
@@ -69,5 +70,11 @@ randomizer.List = List
 --- group class
 -- @field Group
 randomizer.Group = Group
+
+--- change detector module which can be used to detect and log changes to objects
+-- Triggering snapshots and change detection must be called when desired. This is not
+-- automatically triggered by the randomizer.
+-- @field changedetector
+randomizer.changedetector = changedetector
 
 return randomizer
