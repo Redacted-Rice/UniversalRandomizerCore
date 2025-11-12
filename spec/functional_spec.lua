@@ -407,4 +407,211 @@ describe("Functional Tests - Typical Use Cases", function()
 			end
 		end)
 	end)
+
+	describe("Use Case 7: Change Detection", function()
+		it("should detect and report changes made during randomization", function()
+			randomizer.setSeed(555)
+			local changedetector = require("randomizer.changedetector")
+
+			-- enable change detection
+			changedetector.configure(true)
+
+			local entities = {
+				{ name = "Warrior", health = 101, damage = 21, defense = 15 },
+				{ name = "Mage", health = 81, damage = 31, defense = 8 },
+				{ name = "Rogue", health = 91, damage = 26, defense = 12 },
+			}
+
+			-- Monitor the stat fields and use name to identify for return structure
+			local identifierFn = function(entity)
+				return entity.name
+			end
+			changedetector.monitor("entities", entities, { "health", "damage", "defense" }, identifierFn)
+
+			-- Take initial snapshot
+			changedetector.takeSnapshots()
+
+			-- randomize the health and damage only with values not in original set to ensure changes
+			local healthPool = { 70, 85, 95, 110, 125 }
+			randomizer.randomize(entities, healthPool, function(entity, value)
+				entity.health = value
+			end)
+
+			local damagePool = { 15, 20, 25, 30, 35 }
+			randomizer.randomize(entities, damagePool, function(entity, value)
+				entity.damage = value
+			end)
+
+			-- verify changes were detected
+			local changes = changedetector.detectChanges()
+			assert.is_true(
+				changedetector.hasChanges(changes),
+				"Changes should be detected after randomization"
+			)
+
+			-- verify all changed
+			assert.is_not_nil(changes.entities, "Entity changes should exist")
+			assert.is_not_nil(changes.entities["Warrior"], "Warrior should have changes")
+			assert.is_not_nil(changes.entities["Mage"], "Mage should have changes")
+			assert.is_not_nil(changes.entities["Rogue"], "Rogue should have changes")
+
+			-- Spot check both heath and damage
+			assert.is_not_nil(
+				changes.entities["Warrior"].health,
+				"Warrior health should have changed"
+			)
+			assert.are.equal(
+				"101",
+				changes.entities["Warrior"].health.old,
+				"Warrior old health should be 101"
+			)
+			assert.is_not_nil(
+				changes.entities["Warrior"].health.new,
+				"Warrior should have new health"
+			)
+			assert.is_not_nil(
+				changes.entities["Mage"].damage,
+				"Mage damage should have changed"
+			)
+			assert.are.equal(
+				"31",
+				changes.entities["Mage"].damage.old,
+				"Mage old damage should be 31"
+			)
+			assert.is_not_nil(
+				changes.entities["Mage"].damage.new,
+				"Mage should have new damage"
+			)
+
+			-- verify defense is not reported as it wasnt changed
+			assert.is_nil(
+				changes.entities["Warrior"].defense,
+				"Warrior defense should be unchanged"
+			)
+
+			-- reset change detection for next tests
+			changedetector.stopMonitoringAll()
+			changedetector.configure(false)
+		end)
+
+		it("should track multiple randomization phases with separate snapshots", function()
+			randomizer.setSeed(777)
+			local changedetector = require("randomizer.changedetector")
+
+            -- Setup the test
+			changedetector.configure(true)
+			local items = {
+				{ name = "Sword", attack = 10, durability = 105 },
+				{ name = "Shield", attack = 5, durability = 155 },
+				{ name = "Bow", attack = 15, durability = 85 },
+			}
+
+            -- monitor changes to attack and durability and use name to identify for return structure
+			local identifierFn = function(item)
+				return item.name
+			end
+			changedetector.monitor("items", items, { "attack", "durability" }, identifierFn)
+
+			-- First randomize attack
+			changedetector.takeSnapshots()
+			local attackPool = { 8, 12, 16, 20 }
+			randomizer.randomize(items, attackPool, function(item, value)
+				item.attack = value
+			end)
+
+			local phase1Changes = changedetector.detectChanges()
+			assert.is_true(changedetector.hasChanges(phase1Changes))
+
+			-- Spot check that attack was detected but not durability
+            assert.is_not_nil(
+                phase1Changes.items["Sword"].attack,
+                "Sword attack should have changed"
+            )
+            assert.is_nil(
+                phase1Changes.items["Sword"].durability,
+                "Sword durability should be unchanged"
+            )
+
+			-- Now take a new snapshot and randomize durability
+			changedetector.takeSnapshots()
+			local durabilityPool = { 60, 80, 100, 120, 140 }
+			randomizer.randomize(items, durabilityPool, function(item, value)
+				item.durability = value
+			end)
+
+			local phase2Changes = changedetector.detectChanges()
+			assert.is_true(changedetector.hasChanges(phase2Changes))
+
+			-- Spot check that durability was detected but not attack since
+            -- we took a new snapshot since then
+            assert.is_not_nil(
+                phase2Changes.items["Shield"].durability,
+                "Shield durability should have changed"
+            )
+            assert.is_nil(
+                phase2Changes.items["Shield"].attack,
+                "Shield attack should be unchanged in this phase"
+            )
+
+			-- Clean up
+			changedetector.stopMonitoringAll()
+			changedetector.configure(false)
+		end)
+
+		it("should support change detection with grouped randomization", function()
+			randomizer.setSeed(888)
+			local changedetector = require("randomizer.changedetector")
+
+			changedetector.configure(true)
+
+			-- Create units of different types
+			local units = {
+				{ name = "Tank1", type = "TANK", armor = 20 },
+				{ name = "Tank2", type = "TANK", armor = 22 },
+				{ name = "Healer1", type = "HEALER", armor = 10 },
+				{ name = "Healer2", type = "HEALER", armor = 12 },
+			}
+
+			local identifierFn = function(unit)
+				return unit.name
+			end
+			changedetector.monitor("units", units, { "armor" }, identifierFn)
+
+			-- Take snapshot before randomization
+			changedetector.takeSnapshots()
+
+			-- Create grouped armor pools by type
+			local armorPools = randomizer.group({
+				TANK = { 18, 20, 22, 24, 26 },
+				HEALER = { 8, 10, 12, 14 },
+			})
+
+			-- Randomize armor based on type
+			randomizer.randomize(units, armorPools, "type", function(unit, value)
+				unit.armor = value
+			end)
+
+			-- Detect changes
+			local changes = changedetector.detectChanges()
+
+			-- Verify changes detected for all units
+			assert.is_true(changedetector.hasChanges(changes))
+
+			-- Each unit may or may not have changes depending on random selection
+			-- But the system should track them correctly
+			assert.is_not_nil(changes.units, "Unit changes should exist")
+
+			-- Verify old values are correct
+			if changes.units["Tank1"] and changes.units["Tank1"].armor then
+				assert.are.equal("20", changes.units["Tank1"].armor.old)
+			end
+			if changes.units["Healer1"] and changes.units["Healer1"].armor then
+				assert.are.equal("10", changes.units["Healer1"].armor.old)
+			end
+
+			-- reset change detection for next tests
+			changedetector.stopMonitoringAll()
+			changedetector.configure(false)
+		end)
+	end)
 end)
