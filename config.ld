@@ -13,6 +13,7 @@ file = {
     'randomizer/list.lua',
     'randomizer/group.lua',
     'randomizer/utils.lua',
+    'randomizer/changedetector.lua',
 }
 
 -- readme file

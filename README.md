@@ -199,7 +199,7 @@ luarocks install ldoc
 ```
 Note: On windows the bat creation doesn't seem to work correctly and needs to be manually created
 
-Run all tests:
+Generate all lua docs:
 
 ```bash
 ldoc .
