@@ -165,8 +165,9 @@ function utils.getValue(object, getterFnOrField, ...)
 
 	local value
 	if getterType == "string" then
-		-- handle non table objects gracefully
-		if type(object) ~= "table" then
+		-- handle non table/userdata objects gracefully
+		local objectType = type(object)
+		if objectType ~= "table" and objectType ~= "userdata" then
 			return nil
 		end
 
