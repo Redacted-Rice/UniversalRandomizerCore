@@ -15,7 +15,7 @@ Note: Performances, both speed and for large data sets, was not considered
 
 ## Requirements
 
-Lua 5.3 or higher
+**Lua 5.2** for native development and testing. This matches **Luaj 3.0.x** (`org.luaj:luaj-jse:3.0.1`), which implements the Lua **5.2.x** language — there is no Luaj release for Lua 5.3 or 5.4. Lua modules in this repo must stay compatible with what Luaj runs in UniversalRandomizerJava.
 
 ## License
 
@@ -209,38 +209,45 @@ The files will be generated in the `docs` folder.
 
 ## Testing, Coverage, Static Analysis, and Formatting
 
+Requires **Lua 5.2** (same language level as embedded Luaj) and LuaRocks packages for that version (see below). `.busted` pins `lua5.2` as the interpreter.
+
 Uses the following modules on LuaRocks:
-- Busted - for testing
-- LuaCov - for generating coverage report
-- LuaCheck - for static code analysis
+- Busted — testing
+- LuaCov — coverage report
+- LuaCheck — static analysis
+
+### Setup (Linux / WSL)
+
+```bash
+sudo apt install lua5.2 liblua5.2-dev
+luarocks install --lua-version=5.2 --local busted
+luarocks install --lua-version=5.2 --local luacov
+luarocks install --lua-version=5.2 --local luacheck
+```
+
+Note: On Windows the busted `.bat` shim may need to be created manually.
 
 ### Running Tests
 
-Install Busted:
+From this directory, use the helper script (sets `luarocks path` for Lua 5.2):
 
 ```bash
-luarocks install busted
-```
-Note: On windows the bat creation doesn't seem to work correctly and needs to be manually created
-
-Run all tests:
-
-```bash
-busted
+chmod +x run_tests.sh   # once
+./run_tests.sh
 ```
 
 Run just functional or just unit tests:
 
 ```bash
-busted -r unit       # just unit tests
-busted -r functional # just functional tests
+./run_tests.sh -r unit
+./run_tests.sh -r functional
 ```
 
 Run specific test files:
 
 ```bash
-busted spec/unit/list_spec.lua
-busted spec/unit/group_spec.lua
+./run_tests.sh spec/unit/list_spec.lua
+./run_tests.sh spec/unit/group_spec.lua
 ```
 
 ### Test Explanations
@@ -250,7 +257,7 @@ busted spec/unit/group_spec.lua
 All unit tests can be run with the following command
 
 ```bash
-busted -r unit
+./run_tests.sh -r unit
 ```
 
 Current unit tests
@@ -269,7 +276,7 @@ These unit tests cover:
 All functional tests can be run with the following command
 
 ```bash
-busted -r functional
+./run_tests.sh -r functional
 ```
 
 These functional tests cover:
@@ -285,37 +292,24 @@ statistics when you run to check coverage
 
 ### Code Coverage
 
-Install LuaCov:
+Run tests and generate coverage report:
 
 ```bash
-luarocks install luacov
-```
-Note: On windows the bat creation doesn't seem to work correctly and needs to be manually created
-
-Run tests adn generate coverage report:
-
-```bash
-busted --coverage
+./run_tests.sh --coverage
 ```
 
 You shouldn't need to run `luacov` manually to generate the coverage report - this should be done automatically as part of running busted with coverage. This also uses the
-`spec/clear_coverage.lau` script to clear the coverage data from previous runs each time
+`spec/clear_coverage.lua` script to clear the coverage data from previous runs each time
 it is run.
 
 Report is generated in `luacov.report.out`. The library currently has > 99% coverage
 
 ### Static Analysis
 
-Install LuaCheck:
-
-```bash
-luarocks install luacheck
-```
-Note: On windows the bat creation doesn't seem to work correctly and needs to be manually created
-
 Run static checks on all files:
 
 ```bash
+eval "$(luarocks path --lua-version=5.2)"
 luacheck .
 ```
 

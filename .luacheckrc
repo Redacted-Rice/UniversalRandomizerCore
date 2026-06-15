@@ -1,5 +1,5 @@
 -- Luacheck configuration
-std = "lua53"
+std = "lua52"
 
 -- Global variables that are okay to use
 globals = {
