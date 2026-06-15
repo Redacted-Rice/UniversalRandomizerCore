@@ -1,10 +1,11 @@
 return {
   _all = {
-    lua = "lua",
+    lua = "lua5.2",
     verbose = true,
     coverage = false,
     output = "plainTerminal",
-    helper = "spec/clear_coverage.lua"
+    helper = "spec/clear_coverage.lua",
+    lpath = "?.lua;?/init.lua"
   },
   default = {
     ROOT = {"spec"},
