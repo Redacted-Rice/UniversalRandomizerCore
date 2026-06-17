@@ -735,7 +735,7 @@ describe("ChangeDetector Module", function()
 
 			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
 
-			assert.matches("Changes detected for entities", tableOutput)
+			assert.matches("entities changes", tableOutput)
 			assert.matches("|Name", tableOutput)
 			assert.matches("|health From|health To|", tableOutput)
 			assert.matches("|damage From|damage To|", tableOutput)
@@ -816,6 +816,43 @@ describe("ChangeDetector Module", function()
 			assert.matches("|         81|        %-|", tableOutput)
 		end)
 
+		it("should use module name in title when provided in options", function()
+			changedetector.configure(true)
+			local objects = { { id = 1, name = "A", hp = 10 } }
+
+			changedetector.monitor("cards", objects, {
+				title = "Monster Cards",
+				primaryKey = { field = "id", header = "ID", align = "right", numeric = true },
+				description = { field = "name", header = "Name" },
+				fields = { { field = "hp", header = "HP", align = "right" } },
+			})
+			changedetector.takeSnapshots()
+			objects[1].hp = 20
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges(), {
+				moduleName = "shuffle_hp",
+			})
+			assert.matches("shuffle_hp changes", tableOutput)
+			assert.matches("^|%-+|", tableOutput)
+		end)
+
+		it("should prepend a newline when leadingNewline is enabled", function()
+			changedetector.configure(true)
+			local objects = { { id = 1, name = "A", hp = 10 } }
+
+			changedetector.monitor("cards", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = { { field = "hp", header = "HP" } },
+			})
+			changedetector.takeSnapshots()
+			objects[1].hp = 20
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges(), {
+				leadingNewline = true,
+			})
+			assert.matches("^\n", tableOutput)
+		end)
+
 		it("should not crash when title is wider than initial table", function()
 			changedetector.configure(true)
 			local objects = { { id = 1, name = "A", hp = 10 } }
@@ -830,7 +867,7 @@ describe("ChangeDetector Module", function()
 			objects[1].hp = 20
 
 			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
-			assert.matches("Changes detected for Monster Cards", tableOutput)
+			assert.matches("Monster Cards changes", tableOutput)
 			assert.matches("HP From", tableOutput)
 			assert.matches("HP To", tableOutput)
 		end)
@@ -894,8 +931,8 @@ describe("ChangeDetector Module", function()
 
 			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
 
-			assert.matches("Changes detected for entry1", tableOutput)
-			assert.matches("Changes detected for entry2", tableOutput)
+			assert.matches("entry1 changes", tableOutput)
+			assert.matches("entry2 changes", tableOutput)
 			assert.matches("|ItemA", tableOutput)
 			assert.matches("|15", tableOutput)
 			assert.matches("|ItemB", tableOutput)
