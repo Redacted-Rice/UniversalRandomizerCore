@@ -515,12 +515,17 @@ end
 --- Format detected changes as ASCII tables
 -- Layout is defined at monitor setup time and stored in each entry's _format metadata.
 -- @param changes table result from detectChanges()
+-- @param options table|nil optional formatting options:
+--   title string full title row text
+--   moduleName string used to build "{moduleName} changes" when title is omitted
+--   leadingNewline boolean prepend a newline before the formatted output
 -- @return string formatted tables, or empty string when there are no changes
-function changedetector.formatChangesTable(changes)
+function changedetector.formatChangesTable(changes, options)
 	if not changedetector.hasChanges(changes) then
 		return ""
 	end
 
+	options = options or {}
 	local outputLines = {}
 
 	for _, entryChanges in pairs(changes) do
@@ -534,8 +539,16 @@ function changedetector.formatChangesTable(changes)
 				table.insert(rows, changedetector._buildRowValues(entryChanges[rowKey], columns))
 			end
 
+			local title = options.title
+			if not title and options.moduleName then
+				title = options.moduleName .. " changes"
+			end
+			if not title then
+				title = formatConfig.title .. " changes"
+			end
+
 			local tableOutput = asciitable.render({
-				title = "Changes detected for " .. formatConfig.title,
+				title = title,
 				columns = columns,
 				rows = rows,
 				headerEvery = formatConfig.headerEvery,
@@ -547,7 +560,12 @@ function changedetector.formatChangesTable(changes)
 		end
 	end
 
-	return table.concat(outputLines, "\n")
+	local output = table.concat(outputLines, "\n")
+	if options.leadingNewline then
+		output = "\n" .. output
+	end
+
+	return output
 end
 
 return changedetector

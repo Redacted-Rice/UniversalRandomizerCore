@@ -50,6 +50,13 @@ function asciitable._separatorLine(widths)
 	return table.concat(parts)
 end
 
+--- Build a full-width separator line matching a title row
+-- @param totalWidth number full rendered table width
+-- @return string separator row
+function asciitable._fullWidthSeparatorLine(totalWidth)
+	return "|" .. string.rep("-", totalWidth - 2) .. "|"
+end
+
 --- Build the centered title row for a table
 -- @param title string title text without surrounding pipes
 -- @param totalWidth number full rendered table width
@@ -141,28 +148,39 @@ function asciitable.render(config)
 	local outputLines = {}
 	local tableWidth = asciitable._rowWidth(widths)
 
-	local function appendHeaderBlock()
-		table.insert(outputLines, asciitable._separatorLine(widths))
+	local function appendHeaderBlock(includeTopSeparator, useSolidBottom)
+		if includeTopSeparator then
+			table.insert(outputLines, asciitable._separatorLine(widths))
+		end
 		table.insert(outputLines, asciitable._formatRow(columns, widths, headers))
-		table.insert(outputLines, asciitable._separatorLine(widths))
+		if useSolidBottom then
+			table.insert(outputLines, asciitable._fullWidthSeparatorLine(tableWidth))
+		else
+			table.insert(outputLines, asciitable._separatorLine(widths))
+		end
 	end
 
 	if config.title then
+		table.insert(outputLines, asciitable._fullWidthSeparatorLine(tableWidth))
 		table.insert(outputLines, asciitable._titleRow(config.title, tableWidth))
+		table.insert(outputLines, asciitable._fullWidthSeparatorLine(tableWidth))
+		appendHeaderBlock(false, false)
+	else
+		appendHeaderBlock(true, false)
 	end
-
-	appendHeaderBlock()
 
 	for rowIndex, rowValues in ipairs(rows) do
 		if config.headerEvery and rowIndex > 1 and (rowIndex - 1) % config.headerEvery == 0 then
-			appendHeaderBlock()
+			appendHeaderBlock(true, false)
 		end
 
 		table.insert(outputLines, asciitable._formatRow(columns, widths, rowValues))
 	end
 
 	if config.trailingHeader then
-		appendHeaderBlock()
+		appendHeaderBlock(true, true)
+	else
+		table.insert(outputLines, asciitable._fullWidthSeparatorLine(tableWidth))
 	end
 
 	return table.concat(outputLines, "\n")
