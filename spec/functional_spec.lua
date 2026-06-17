@@ -423,10 +423,14 @@ describe("Functional Tests - Typical Use Cases", function()
 			}
 
 			-- Monitor the stat fields and use name to identify for return structure
-			local identifierFn = function(entity)
-				return entity.name
-			end
-			changedetector.monitor("entities", entities, { "health", "damage", "defense" }, identifierFn)
+			changedetector.monitor("entities", entities, {
+				primaryKey = { field = "name", header = "Name" },
+				fields = {
+					{ field = "health", header = "Health" },
+					{ field = "damage", header = "Damage" },
+					{ field = "defense", header = "Defense" },
+				},
+			})
 
 			-- Take initial snapshot
 			changedetector.takeSnapshots()
@@ -483,11 +487,9 @@ describe("Functional Tests - Typical Use Cases", function()
 				"Mage should have new damage"
 			)
 
-			-- verify defense is not reported as it wasnt changed
-			assert.is_nil(
-				changes.entities["Warrior"].defense,
-				"Warrior defense should be unchanged"
-			)
+			-- verify defense is reported with value in From and dash in To
+			assert.are.equal("15", changes.entities["Warrior"].defense.old)
+			assert.are.equal("-", changes.entities["Warrior"].defense.new)
 
 			-- reset change detection for next tests
 			changedetector.stopMonitoringAll()
@@ -507,10 +509,13 @@ describe("Functional Tests - Typical Use Cases", function()
 			}
 
             -- monitor changes to attack and durability and use name to identify for return structure
-			local identifierFn = function(item)
-				return item.name
-			end
-			changedetector.monitor("items", items, { "attack", "durability" }, identifierFn)
+			changedetector.monitor("items", items, {
+				primaryKey = { field = "name", header = "Name" },
+				fields = {
+					{ field = "attack", header = "Attack" },
+					{ field = "durability", header = "Durability" },
+				},
+			})
 
 			-- First randomize attack
 			changedetector.takeSnapshots()
@@ -527,10 +532,8 @@ describe("Functional Tests - Typical Use Cases", function()
                 phase1Changes.items["Sword"].attack,
                 "Sword attack should have changed"
             )
-            assert.is_nil(
-                phase1Changes.items["Sword"].durability,
-                "Sword durability should be unchanged"
-            )
+            assert.are.equal("-", phase1Changes.items["Sword"].durability.new)
+            assert.are.equal("105", phase1Changes.items["Sword"].durability.old)
 
 			-- Now take a new snapshot and randomize durability
 			changedetector.takeSnapshots()
@@ -548,10 +551,7 @@ describe("Functional Tests - Typical Use Cases", function()
                 phase2Changes.items["Shield"].durability,
                 "Shield durability should have changed"
             )
-            assert.is_nil(
-                phase2Changes.items["Shield"].attack,
-                "Shield attack should be unchanged in this phase"
-            )
+            assert.are.equal("-", phase2Changes.items["Shield"].attack.new)
 
 			-- Clean up
 			changedetector.stopMonitoringAll()
@@ -572,10 +572,10 @@ describe("Functional Tests - Typical Use Cases", function()
 				{ name = "Healer2", type = "HEALER", armor = 12 },
 			}
 
-			local identifierFn = function(unit)
-				return unit.name
-			end
-			changedetector.monitor("units", units, { "armor" }, identifierFn)
+			changedetector.monitor("units", units, {
+				primaryKey = { field = "name", header = "Name" },
+				fields = { { field = "armor", header = "Armor" } },
+			})
 
 			-- Take snapshot before randomization
 			changedetector.takeSnapshots()

@@ -17,6 +17,31 @@ describe("ChangeDetector Module", function()
 		return result
 	end
 
+	local function assignIds(objects)
+		for index, object in ipairs(objects) do
+			if object.id == nil then
+				object.id = index
+			end
+		end
+	end
+
+	local function monitorFields(entryName, objects, fieldNames, primaryKeyField)
+		assignIds(objects)
+		local fields = {}
+		for _, fieldName in ipairs(fieldNames) do
+			table.insert(fields, { field = fieldName, header = fieldName })
+		end
+
+		changedetector.monitor(entryName, objects, {
+			primaryKey = {
+				field = primaryKeyField or "id",
+				header = primaryKeyField or "ID",
+				numeric = (primaryKeyField or "id") == "id",
+			},
+			fields = fields,
+		})
+	end
+
 	setup(function()
 		changedetector = require("randomizer.changedetector")
 		randomizer = require("randomizer")
@@ -56,7 +81,7 @@ describe("ChangeDetector Module", function()
 				{ name = "Item2", value = 20 },
 			}
 
-			changedetector.monitor("test_entry", objects, { "name", "value" })
+			monitorFields("test_entry", objects, { "name", "value" })
 
 			local entries = changedetector.getMonitoredEntryNames()
 			assert.are.equal(1, #entries)
@@ -67,24 +92,28 @@ describe("ChangeDetector Module", function()
 			local objects1 = { { value = 1 } }
 			local objects2 = { { value = 2 } }
 
-			changedetector.monitor("entry1", objects1, { "value" })
-			changedetector.monitor("entry2", objects2, { "value" })
+			monitorFields("entry1", objects1, { "value" })
+			monitorFields("entry2", objects2, { "value" })
 
 			local entries = changedetector.getMonitoredEntryNames()
 			assert.are.equal(2, #entries)
 		end)
 
-		it("should handle custom identifier function", function()
+		it("should handle custom primary key getter", function()
 			local objects = {
 				{ id = 1, value = 10 },
 				{ id = 2, value = 20 },
 			}
 
-			local identifierFn = function(obj)
-				return "Object_" .. obj.id
-			end
-
-			changedetector.monitor("custom_id", objects, { "value" }, identifierFn)
+			changedetector.monitor("custom_id", objects, {
+				primaryKey = {
+					header = "ID",
+					getter = function(obj)
+						return "Object_" .. obj.id
+					end,
+				},
+				fields = { { field = "value", header = "value" } },
+			})
 
 			local entries = changedetector.getMonitoredEntryNames()
 			assert.are.equal(1, #entries)
@@ -93,12 +122,12 @@ describe("ChangeDetector Module", function()
 		it("should warn and not register when missing required param", function()
 			local objects = { { value = 1 } }
 			withSuppressedOutput(function()
-				changedetector.monitor(nil, objects, { "value" })
+				changedetector.monitor(nil, objects, { fields = { { field = "value", header = "value" } } })
 			end)
 			assert.are.equal(0, #changedetector.getMonitoredEntryNames())
 
 			withSuppressedOutput(function()
-				changedetector.monitor("test", nil, { "value" })
+				changedetector.monitor("test", nil, { fields = { { field = "value", header = "value" } } })
 			end)
 			assert.are.equal(0, #changedetector.getMonitoredEntryNames())
 
@@ -111,36 +140,46 @@ describe("ChangeDetector Module", function()
 
 		it("should warn when objects array is empty", function()
 			withSuppressedOutput(function()
-				changedetector.monitor("test", {}, { "value" })
+				changedetector.monitor("test", {}, {
+					primaryKey = { field = "id", header = "ID" },
+					fields = { { field = "value", header = "value" } },
+				})
 			end)
-			-- Should not register
 			assert.are.equal(0, #changedetector.getMonitoredEntryNames())
 		end)
 
-		it("should warn when fields is not a table", function()
+		it("should warn when config is invalid", function()
 			local objects = { { value = 1 } }
 			withSuppressedOutput(function()
 				changedetector.monitor("test", objects, "value")
 			end)
-			-- Should not register
+			assert.are.equal(0, #changedetector.getMonitoredEntryNames())
+
+			withSuppressedOutput(function()
+				changedetector.monitor("test", objects, {
+					fields = { { field = "value", header = "value" } },
+				})
+			end)
 			assert.are.equal(0, #changedetector.getMonitoredEntryNames())
 		end)
 
 		it("should accept fields with getter functions", function()
 			local objects = {
-				{ _value = 10 },
+				{ id = 1, _value = 10 },
 			}
 
-			local fields = {
-				{
-					name = "value",
-					getter = function(obj)
-						return obj._value
-					end,
+			changedetector.monitor("getter_test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{
+						name = "value",
+						header = "value",
+						getter = function(obj)
+							return obj._value
+						end,
+					},
 				},
-			}
-
-			changedetector.monitor("getter_test", objects, fields)
+			})
 
 			local entries = changedetector.getMonitoredEntryNames()
 			assert.are.equal(1, #entries)
@@ -150,8 +189,8 @@ describe("ChangeDetector Module", function()
 	describe("stopMonitoring", function()
 		it("should stop monitoring a specific entry", function()
 			local objects = { { value = 1 } }
-			changedetector.monitor("entry1", objects, { "value" })
-			changedetector.monitor("entry2", objects, { "value" })
+			monitorFields("entry1", objects, { "value" })
+			monitorFields("entry2", objects, { "value" })
 			assert.are.equal(2, #changedetector.getMonitoredEntryNames())
 
 			changedetector.stopMonitoring("entry1")
@@ -170,9 +209,9 @@ describe("ChangeDetector Module", function()
 	describe("stopMonitoringAll", function()
 		it("should clear all monitoring entries", function()
 			local objects = { { value = 1 } }
-			changedetector.monitor("entry1", objects, { "value" })
-			changedetector.monitor("entry2", objects, { "value" })
-			changedetector.monitor("entry3", objects, { "value" })
+			monitorFields("entry1", objects, { "value" })
+			monitorFields("entry2", objects, { "value" })
+			monitorFields("entry3", objects, { "value" })
 			assert.are.equal(3, #changedetector.getMonitoredEntryNames())
 
 			changedetector.stopMonitoringAll()
@@ -194,8 +233,8 @@ describe("ChangeDetector Module", function()
 
 		it("should return all entry names", function()
 			local objects = { { value = 1 } }
-			changedetector.monitor("entry1", objects, { "value" })
-			changedetector.monitor("entry2", objects, { "value" })
+			monitorFields("entry1", objects, { "value" })
+			monitorFields("entry2", objects, { "value" })
 
 			local entries = changedetector.getMonitoredEntryNames()
 			assert.are.equal(2, #entries)
@@ -223,7 +262,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(false)
-			changedetector.monitor("test", objects, { "value" })
+			monitorFields("test", objects, { "value" })
 			changedetector.takeSnapshots()
             -- we currently can't check the snapshots directly as they are not exposed
             -- Just make sure its still inactive and we dont error
@@ -236,7 +275,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "value" })
+			monitorFields("test", objects, { "value" })
 			changedetector.takeSnapshots()
             -- Again can't really verify beyond that it didn't error and doesn't show changes
 			local changes = changedetector.detectChanges()
@@ -250,7 +289,7 @@ describe("ChangeDetector Module", function()
 
             -- setup snapshot and then modify the object
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "value" })
+			monitorFields("test", objects, { "value" })
 			changedetector.takeSnapshots()
 			objects[1].value = 20
 
@@ -279,18 +318,22 @@ describe("ChangeDetector Module", function()
 				Object.new(10),
 				Object.new(20),
 			}
-
-			local fields = {
-				{
-					name = "value",
-					getter = function(obj)
-						return obj:getValue()
-					end,
-				},
-			}
+			objects[1].id = 1
+			objects[2].id = 2
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, fields)
+			changedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{
+						name = "value",
+						header = "value",
+						getter = function(obj)
+							return obj:getValue()
+						end,
+					},
+				},
+			})
 			changedetector.takeSnapshots()
 
             -- Methods should return the same values each time called so no changes
@@ -299,19 +342,22 @@ describe("ChangeDetector Module", function()
 			assert.is_false(changedetector.hasChanges(changes))
 		end)
 
-		it("should handle identifier function errors gracefully", function()
+		it("should handle primary key getter errors gracefully", function()
 			local objects = {
-				{ value = 10 },
+				{ id = 1, value = 10 },
 			}
 
-			local badIdentifier = function(obj)
-				error("Identifier error")
-			end
-
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "value" }, badIdentifier)
+			changedetector.monitor("test", objects, {
+				primaryKey = {
+					header = "ID",
+					getter = function()
+						error("Key error")
+					end,
+				},
+				fields = { { field = "value", header = "value" } },
+			})
 
-			-- Should not crash and should fallback to tostring
 			withSuppressedOutput(function()
 				changedetector.takeSnapshots()
 			end)
@@ -328,7 +374,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "name", "value" })
+			monitorFields("test", objects, { "name", "value" })
 			changedetector.takeSnapshots()
 
 			local changes = changedetector.detectChanges()
@@ -342,7 +388,7 @@ describe("ChangeDetector Module", function()
 
             -- take snapshot then modify
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "name", "value" })
+			monitorFields("test", objects, { "name", "value" })
 			changedetector.takeSnapshots()
 			objects[1].value = 20
 
@@ -361,20 +407,22 @@ describe("ChangeDetector Module", function()
 
             -- take snapshot and modify two of the 3
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "value" })
+			monitorFields("test", objects, { "value" })
 			changedetector.takeSnapshots()
 			objects[1].value = 15
 			objects[3].value = 35
 
 			local changes = changedetector.detectChanges()
 			assert.is_true(changedetector.hasChanges(changes))
-
-            -- Ensure two are shown
 			local changeCount = 0
-			for _, _ in pairs(changes.test) do
-				changeCount = changeCount + 1
+			for rowKey in pairs(changes.test) do
+				if rowKey ~= "_format" then
+					changeCount = changeCount + 1
+				end
 			end
-			assert.are.equal(2, changeCount)
+
+            -- All rows are included when any row changes
+			assert.are.equal(3, changeCount)
 		end)
 
 		it("should detect changes in multiple fields", function()
@@ -384,7 +432,7 @@ describe("ChangeDetector Module", function()
 
             -- take snapshot and modify multiple fields
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "name", "value", "status" })
+			monitorFields("test", objects, { "name", "value", "status" }, "name")
 			changedetector.takeSnapshots()
 			objects[1].value = 20
 			objects[1].status = "inactive"
@@ -393,10 +441,11 @@ describe("ChangeDetector Module", function()
 			local changes = changedetector.detectChanges()
 			assert.is_true(changedetector.hasChanges(changes))
 
-			local objChanges = changes.test[tostring(objects[1])]
+			local objChanges = changes.test["Item1"]
 			assert.is_not_nil(objChanges.value)
 			assert.is_not_nil(objChanges.status)
-			assert.is_nil(objChanges.name) -- name didn't change
+			assert.are.equal("Item1", objChanges.name.old)
+			assert.are.equal("-", objChanges.name.new)
 		end)
 
 		it("should detect changes across multiple entries", function()
@@ -406,8 +455,8 @@ describe("ChangeDetector Module", function()
 
             -- take snapshot and modify both
 			changedetector.configure(true)
-			changedetector.monitor("entry1", objects1, { "value" })
-			changedetector.monitor("entry2", objects2, { "value" })
+			monitorFields("entry1", objects1, { "value" })
+			monitorFields("entry2", objects2, { "value" })
 			changedetector.takeSnapshots()
 			objects1[1].value = 15
 			objects2[1].value = 25
@@ -423,7 +472,7 @@ describe("ChangeDetector Module", function()
 			local objects = { { value = 10 } }
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "value" })
+			monitorFields("test", objects, { "value" })
 			-- Don't take snapshot
 
             -- Ensure no changes are shown and it doesn't crash
@@ -431,27 +480,29 @@ describe("ChangeDetector Module", function()
 			assert.is_false(changedetector.hasChanges(changes))
 		end)
 
-		it("should handle changes detected with custom identifier", function()
+		it("should handle changes detected with custom primary key", function()
 			local objects = {
 				{ id = "A", value = 10 },
 				{ id = "B", value = 20 },
 			}
 
-			local identifierFn = function(obj)
-				return "Item_" .. obj.id
-			end
-
-            -- Setup with custom identifier function and modify
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "value" }, identifierFn)
+			changedetector.monitor("test", objects, {
+				primaryKey = {
+					header = "ID",
+					getter = function(obj)
+						return "Item_" .. obj.id
+					end,
+				},
+				fields = { { field = "value", header = "value" } },
+			})
 			changedetector.takeSnapshots()
 			objects[1].value = 15
 
-            -- Ensure it shows the change using the custom identifier function
 			local changes = changedetector.detectChanges()
 			assert.is_true(changedetector.hasChanges(changes))
 			assert.is_not_nil(changes.test["Item_A"])
-			assert.is_nil(changes.test["Item_B"])
+			assert.is_not_nil(changes.test["Item_B"])
 		end)
 
 		it("should provide old and new values in change records", function()
@@ -460,12 +511,12 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "value" })
+			monitorFields("test", objects, { "value" })
 			changedetector.takeSnapshots()
 			objects[1].value = 20
 
 			local changes = changedetector.detectChanges()
-			local objChanges = changes.test[tostring(objects[1])]
+			local objChanges = changes.test["1"]
 
             -- Check that the values are correct
 			assert.are.equal("10", objChanges.value.old)
@@ -474,27 +525,29 @@ describe("ChangeDetector Module", function()
 
 		it("should detect changes with getter-based fields", function()
 			local objects = {
-				{ _private = 10 },
-			}
-
-			local fields = {
-				{
-					name = "private",
-					getter = function(obj)
-						return obj._private
-					end,
-				},
+				{ id = 1, _private = 10 },
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, fields)
+			changedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{
+						name = "private",
+						header = "private",
+						getter = function(obj)
+							return obj._private
+						end,
+					},
+				},
+			})
 			changedetector.takeSnapshots()
 			objects[1]._private = 20
 
 			local changes = changedetector.detectChanges()
 			assert.is_true(changedetector.hasChanges(changes))
 
-			local objChanges = changes.test[tostring(objects[1])]
+			local objChanges = changes.test["1"]
 			assert.is_not_nil(objChanges.private)
 			assert.are.equal("10", objChanges.private.old)
 			assert.are.equal("20", objChanges.private.new)
@@ -506,7 +559,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "name" })
+			monitorFields("test", objects, { "name" }, "name")
 			changedetector.takeSnapshots()
 
 			objects[1].name = "modified"
@@ -514,7 +567,7 @@ describe("ChangeDetector Module", function()
 			local changes = changedetector.detectChanges()
 			assert.is_true(changedetector.hasChanges(changes))
 
-			local objChanges = changes.test[tostring(objects[1])]
+			local objChanges = changes.test["original"]
 			assert.are.equal("original", objChanges.name.old)
 			assert.are.equal("modified", objChanges.name.new)
 		end)
@@ -525,7 +578,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "active" })
+			monitorFields("test", objects, { "active" })
 			changedetector.takeSnapshots()
 
 			objects[1].active = false
@@ -540,7 +593,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "value" })
+			monitorFields("test", objects, { "value" })
 			changedetector.takeSnapshots()
 
 			objects[1].value = 10
@@ -557,7 +610,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "monitored" })
+			monitorFields("test", objects, { "monitored" })
 			changedetector.takeSnapshots()
 
 			-- Only change unmonitored field
@@ -592,7 +645,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "value" })
+			monitorFields("test", objects, { "value" })
 			changedetector.takeSnapshots()
 
 			-- Change type from number to string
@@ -601,7 +654,7 @@ describe("ChangeDetector Module", function()
 			local changes = changedetector.detectChanges()
 			assert.is_true(changedetector.hasChanges(changes))
 
-			local objChanges = changes.test[tostring(objects[1])]
+			local objChanges = changes.test["1"]
 			assert.are.equal("10", objChanges.value.old)
 			assert.are.equal("ten", objChanges.value.new)
 		end)
@@ -612,7 +665,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "data" })
+			monitorFields("test", objects, { "data" })
 			changedetector.takeSnapshots()
 
 			-- Replace table with different table
@@ -629,7 +682,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "data" })
+			monitorFields("test", objects, { "data" })
 			changedetector.takeSnapshots()
 
 			local changes = changedetector.detectChanges()
@@ -643,7 +696,7 @@ describe("ChangeDetector Module", function()
 			}
 
 			changedetector.configure(true)
-			changedetector.monitor("test", objects, { "value" })
+			monitorFields("test", objects, { "value" })
 			changedetector.takeSnapshots()
 
 			-- Change to nil
@@ -652,6 +705,201 @@ describe("ChangeDetector Module", function()
 			local changes = changedetector.detectChanges()
 			-- Should detect change from 42 to nil
 			assert.is_true(changedetector.hasChanges(changes))
+		end)
+	end)
+
+	describe("formatChangesTable", function()
+		it("should return empty string when there are no changes", function()
+			assert.are.equal("", changedetector.formatChangesTable({}))
+		end)
+
+		it("should format one row per object with field from/to columns from setup", function()
+			changedetector.configure(true)
+			local objects = {
+				{ name = "Warrior", health = 101, damage = 21 },
+				{ name = "Mage", health = 81, damage = 31 },
+			}
+
+			changedetector.monitor("entities", objects, {
+				title = "entities",
+				primaryKey = { field = "name", header = "Name" },
+				fields = {
+					{ field = "health", header = "health", align = "right" },
+					{ field = "damage", header = "damage", align = "right" },
+				},
+			})
+			changedetector.takeSnapshots()
+			objects[1].health = 95
+			objects[1].damage = 30
+			objects[2].damage = 20
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
+
+			assert.matches("Changes detected for entities", tableOutput)
+			assert.matches("|Name", tableOutput)
+			assert.matches("|health From|health To|", tableOutput)
+			assert.matches("|damage From|damage To|", tableOutput)
+			assert.matches("|Warrior", tableOutput)
+			assert.matches("101", tableOutput)
+			assert.matches("95", tableOutput)
+			assert.matches("|Mage", tableOutput)
+		end)
+
+		it("should use primary and description columns from setup", function()
+			changedetector.configure(true)
+			local objects = {
+				{ id = 99, name = "Abra", hp = 30 },
+			}
+
+			changedetector.monitor("Monster Cards", objects, {
+				title = "Monster Cards",
+				primaryKey = { field = "id", header = "ID", align = "right", numeric = true },
+				description = { field = "name", header = "Name" },
+				fields = {
+					{ field = "hp", header = "HP", align = "right" },
+				},
+			})
+			changedetector.takeSnapshots()
+			objects[1].hp = 40
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
+
+			assert.matches("|ID", tableOutput)
+			assert.matches("|Name", tableOutput)
+			assert.matches("|Abra", tableOutput)
+			assert.matches("|99", tableOutput)
+			assert.matches("HP From", tableOutput)
+			assert.matches("HP To", tableOutput)
+		end)
+
+		it("should sort rows by numeric primary key", function()
+			changedetector.configure(true)
+			local objects = {
+				{ id = 20, name = "B", hp = 1 },
+				{ id = 10, name = "A", hp = 3 },
+			}
+
+			changedetector.monitor("cards", objects, {
+				primaryKey = { field = "id", header = "ID", align = "right", numeric = true },
+				description = { field = "name", header = "Name" },
+				fields = { { field = "hp", header = "HP" } },
+			})
+			changedetector.takeSnapshots()
+			objects[1].hp = 2
+			objects[2].hp = 4
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
+			local first = tableOutput:find("|10|")
+			local second = tableOutput:find("|20|")
+			assert.is_true(first < second)
+		end)
+
+		it("should include all rows when any row has changes", function()
+			changedetector.configure(true)
+			local objects = {
+				{ id = 1, name = "Warrior", health = 101 },
+				{ id = 2, name = "Mage", health = 81 },
+			}
+
+			changedetector.monitor("entities", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				description = { field = "name", header = "Name" },
+				fields = { { field = "health", header = "health", align = "right" } },
+			})
+			changedetector.takeSnapshots()
+			objects[1].health = 95
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
+			assert.matches("|Warrior", tableOutput)
+			assert.matches("|Mage", tableOutput)
+			assert.matches("|        101|       95|", tableOutput)
+			assert.matches("|         81|        %-|", tableOutput)
+		end)
+
+		it("should not crash when title is wider than initial table", function()
+			changedetector.configure(true)
+			local objects = { { id = 1, name = "A", hp = 10 } }
+
+			changedetector.monitor("cards", objects, {
+				title = "Monster Cards",
+				primaryKey = { field = "id", header = "ID", align = "right", numeric = true },
+				description = { field = "name", header = "Name" },
+				fields = { { field = "hp", header = "HP", align = "right" } },
+			})
+			changedetector.takeSnapshots()
+			objects[1].hp = 20
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
+			assert.matches("Changes detected for Monster Cards", tableOutput)
+			assert.matches("HP From", tableOutput)
+			assert.matches("HP To", tableOutput)
+		end)
+
+		it("should repeat the header every N rows when configured at setup", function()
+			changedetector.configure(true)
+			local objects = {}
+			for index = 1, 35 do
+				objects[index] = { id = "ITEM_" .. index, value = index }
+			end
+
+			changedetector.monitor("items", objects, {
+				primaryKey = { field = "id", header = "ID" },
+				fields = { { field = "value", header = "value" } },
+				headerEvery = 30,
+			})
+			changedetector.takeSnapshots()
+			for index = 1, 35 do
+				objects[index].value = index + 1
+			end
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
+			local _, headerCount = tableOutput:gsub("|value From|value To|", "")
+			assert.are.equal(2, headerCount)
+		end)
+
+		it("should append a trailing header when configured at setup", function()
+			changedetector.configure(true)
+			local objects = { { id = 1, name = "A", hp = 10 } }
+
+			changedetector.monitor("cards", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				description = { field = "name", header = "Name" },
+				fields = { { field = "hp", header = "HP" } },
+				trailingHeader = true,
+			})
+			changedetector.takeSnapshots()
+			objects[1].hp = 20
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
+			local _, totalHeaderCount = tableOutput:gsub("HP From", "")
+			assert.are.equal(2, totalHeaderCount)
+		end)
+
+		it("should emit one table per monitored entry", function()
+			changedetector.configure(true)
+			local entry1Objects = { { name = "ItemA", value = 10 } }
+			local entry2Objects = { { name = "ItemB", value = 20 } }
+
+			changedetector.monitor("entry1", entry1Objects, {
+				primaryKey = { field = "name", header = "Name" },
+				fields = { { field = "value", header = "value" } },
+			})
+			changedetector.monitor("entry2", entry2Objects, {
+				primaryKey = { field = "name", header = "Name" },
+				fields = { { field = "value", header = "value" } },
+			})
+			changedetector.takeSnapshots()
+			entry1Objects[1].value = 15
+			entry2Objects[1].value = 25
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
+
+			assert.matches("Changes detected for entry1", tableOutput)
+			assert.matches("Changes detected for entry2", tableOutput)
+			assert.matches("|ItemA", tableOutput)
+			assert.matches("|15", tableOutput)
+			assert.matches("|ItemB", tableOutput)
+			assert.matches("|25", tableOutput)
 		end)
 	end)
 end)
