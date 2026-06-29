@@ -4,6 +4,7 @@
 -- @module randomizer.changedetector
 
 local asciitable = require("randomizer.asciitable")
+local tablelayout = require("randomizer.tablelayout")
 
 local changedetector = {}
 
@@ -33,170 +34,17 @@ function changedetector.configure(active)
 	isChangeDetectionActive = active or false
 end
 
---- Convert a captured value to a display string
--- Handles userdata objects that expose toString()
--- @param value any captured field or key value
--- @return string
-function changedetector._valueToString(value)
-	if value == nil then
-		return ""
-	end
-
-	if type(value) == "userdata" and value.toString then
-		local result = value:toString()
-		if result ~= nil then
-			return tostring(result)
-		end
-	end
-
-	return tostring(value)
-end
-
---- Read a value from an object using a normalized key or field spec
--- Uses pcall because getters may raise errors from Java bindings.
--- @param obj object being monitored
--- @param spec table with a read function created during monitor setup
--- @return any raw value, or nil when the read fails
-function changedetector._readRaw(obj, spec)
-	if not spec or not spec.read then
-		return nil
-	end
-
-	local ok, result = pcall(spec.read, obj)
-	if not ok or result == nil then
-		return nil
-	end
-
-	return result
-end
-
---- Normalize a tracked field spec from monitor config
--- @param spec table with field or getter, plus optional header and align
--- @return table|nil normalized field definition
--- @return string|nil error message when invalid
-function changedetector._normalizeFieldSpec(spec)
-	if type(spec) ~= "table" or (not spec.field and not spec.getter and not spec.name) then
-		return nil, "Tracked field requires field or getter"
-	end
-
-	local key = spec.field or spec.name
-	return {
-		key = key,
-		header = spec.header or key,
-		align = spec.align or "left",
-		read = spec.getter or function(obj)
-			return obj[spec.field]
-		end,
-	}, nil
-end
-
---- Normalize a primary key or description spec from monitor config
--- @param spec table with field or getter, plus optional header, align, and numeric
--- @param defaultHeader string fallback column header
--- @return table|nil normalized key definition
--- @return string|nil error message when invalid
-function changedetector._normalizeKeySpec(spec, defaultHeader)
-	if type(spec) ~= "table" then
-		return nil, "Key spec is required"
-	end
-
-	return {
-		header = spec.header or defaultHeader,
-		align = spec.align or "left",
-		numeric = spec.numeric or false,
-		read = spec.getter or function(obj)
-			return obj[spec.field]
-		end,
-	}, nil
-end
-
---- Build the ASCII table column layout for a monitoring entry
--- Produces primary key, optional description, then From/To pairs for each tracked field
--- @param entry table normalized monitoring entry
--- @return table column definitions used by formatChangesTable
-function changedetector._buildTableColumns(entry)
-	local columns = {
-		{
-			role = "primary",
-			header = entry.primaryKey.header,
-			align = entry.primaryKey.align,
-		},
-	}
-
-	if entry.description then
-		table.insert(columns, {
-			role = "description",
-			header = entry.description.header,
-			align = entry.description.align,
-		})
-	end
-
-	for _, field in ipairs(entry.fields) do
-		table.insert(columns, {
-			role = "from",
-			fieldKey = field.key,
-			header = field.header .. " From",
-			align = field.align,
-		})
-		table.insert(columns, {
-			role = "to",
-			fieldKey = field.key,
-			header = field.header .. " To",
-			align = field.align,
-		})
-	end
-
-	return columns
-end
-
 --- Validate and normalize monitor config into a stored entry definition
 -- @param config table monitor config passed to changedetector.monitor
 -- @return table|nil normalized entry definition
 -- @return string|nil error message when invalid
 function changedetector._normalizeMonitorConfig(config)
-	if type(config) ~= "table" then
-		return nil, "monitor config must be a table"
+	local entry, configError = tablelayout._normalizeLayoutConfig(config)
+	if not entry then
+		return nil, configError
 	end
 
-	if type(config.fields) ~= "table" then
-		return nil, "monitor config requires fields"
-	end
-
-	if not config.primaryKey then
-		return nil, "monitor config requires primaryKey"
-	end
-
-	local primaryKey, primaryKeyError = changedetector._normalizeKeySpec(config.primaryKey, "ID")
-	if not primaryKey then
-		return nil, primaryKeyError
-	end
-
-	local description = nil
-	if config.description then
-		description, primaryKeyError = changedetector._normalizeKeySpec(config.description, "Description")
-		if not description then
-			return nil, primaryKeyError
-		end
-	end
-
-	local entry = {
-		title = config.title,
-		headerEvery = config.headerEvery,
-		trailingHeader = config.trailingHeader or false,
-		primaryKey = primaryKey,
-		description = description,
-		fields = {},
-	}
-
-	for index, fieldSpec in ipairs(config.fields) do
-		local field, fieldError = changedetector._normalizeFieldSpec(fieldSpec)
-		if not field then
-			return nil, fieldError or ("invalid field at index " .. index)
-		end
-		table.insert(entry.fields, field)
-	end
-
-	entry.columns = changedetector._buildTableColumns(entry)
+	entry.columns = tablelayout._buildChangeColumns(entry)
 	return entry, nil
 end
 
@@ -249,67 +97,6 @@ function changedetector.stopMonitoringAll()
 	monitoredEntries = {}
 end
 
---- Format a key value for display in table output
--- @param raw any raw key value
--- @param keySpec table normalized primary or description key spec
--- @return string
-function changedetector._formatKeyDisplay(raw, keySpec)
-	if raw == nil then
-		return ""
-	end
-
-	if keySpec.numeric then
-		local numberValue = tonumber(raw)
-		if numberValue then
-			return tostring(numberValue)
-		end
-	end
-
-	return changedetector._valueToString(raw)
-end
-
---- Get the sortable value for a key column
--- @param raw any raw key value
--- @param keySpec table normalized primary key spec
--- @return number|string value used for row sorting
-function changedetector._keySortValue(raw, keySpec)
-	if raw == nil then
-		return keySpec.numeric and 0 or ""
-	end
-
-	if keySpec.numeric then
-		return tonumber(raw) or 0
-	end
-
-	return changedetector._valueToString(raw)
-end
-
---- Read display and sort values for a configured key column
--- @param obj object being monitored
--- @param keySpec table normalized key spec
--- @return string display value, number|string sort value
-function changedetector._readKeyFields(obj, keySpec)
-	local raw = changedetector._readRaw(obj, keySpec)
-	return changedetector._formatKeyDisplay(raw, keySpec), changedetector._keySortValue(raw, keySpec)
-end
-
---- Capture state of a single object
--- @param obj the object to capture
--- @param fields table of normalized tracked field definitions
--- @return table capturing current values keyed by field key
-function changedetector._captureState(obj, fields)
-	local state = {}
-
-	for _, field in ipairs(fields) do
-		local value = changedetector._readRaw(obj, field)
-		if value ~= nil then
-			state[field.key] = value
-		end
-	end
-
-	return state
-end
-
 --- Take a new snapshot of all configured monitoring entries
 function changedetector.takeSnapshots()
 	if not changedetector.isActive() then
@@ -319,23 +106,14 @@ function changedetector.takeSnapshots()
 	for _, entry in pairs(monitoredEntries) do
 		local newSnapshot = {}
 
-		for _, obj in ipairs(entry.objects) do
-			local primary, primarySort = changedetector._readKeyFields(obj, entry.primaryKey)
-			local description = ""
-			if entry.description then
-				description = changedetector._formatKeyDisplay(
-					changedetector._readRaw(obj, entry.description),
-					entry.description
-				)
-			end
-
+		for _, rowData in ipairs(tablelayout._sortedRows(entry.objects, entry)) do
 			table.insert(newSnapshot, {
-				object = obj,
-				rowKey = tostring(primarySort),
-				primary = primary,
-				primarySort = primarySort,
-				description = description,
-				state = changedetector._captureState(obj, entry.fields),
+				object = rowData.object,
+				rowKey = tostring(rowData.primarySort),
+				primary = rowData.primary,
+				primarySort = rowData.primarySort,
+				description = rowData.description,
+				state = tablelayout._captureFieldState(rowData.object, entry.fields),
 			})
 		end
 
@@ -379,7 +157,7 @@ function changedetector.detectChanges()
 		local anyChanged = false
 
 		for _, snapshot in ipairs(entry.snapshot) do
-			local currentState = changedetector._captureState(snapshot.object, entry.fields)
+			local currentState = tablelayout._captureFieldState(snapshot.object, entry.fields)
 			local rowData = {
 				_primary = snapshot.primary,
 				_primarySort = snapshot.primarySort,
@@ -393,12 +171,12 @@ function changedetector.detectChanges()
 				if oldValue ~= nil and not changedetector._deepCompare(oldValue, newValue) then
 					anyChanged = true
 					rowData[field.key] = {
-						old = changedetector._valueToString(oldValue),
-						new = changedetector._valueToString(newValue),
+						old = tablelayout._valueToString(oldValue),
+						new = tablelayout._valueToString(newValue),
 					}
 				else
 					rowData[field.key] = {
-						old = changedetector._valueToString(newValue),
+						old = tablelayout._valueToString(newValue),
 						new = "-",
 					}
 				end
@@ -539,33 +317,20 @@ function changedetector.formatChangesTable(changes, options)
 				table.insert(rows, changedetector._buildRowValues(entryChanges[rowKey], columns))
 			end
 
-			local title = options.title
-			if not title and options.moduleName then
-				title = options.moduleName .. " changes"
-			end
-			if not title then
-				title = formatConfig.title .. " changes"
-			end
+			local title = asciitable.resolveTitle(options, formatConfig.title .. " changes")
 
-			local tableOutput = asciitable.render({
+			table.insert(outputLines, asciitable.render({
 				title = title,
 				columns = columns,
 				rows = rows,
 				headerEvery = formatConfig.headerEvery,
 				trailingHeader = formatConfig.trailingHeader,
-			})
-
-			table.insert(outputLines, tableOutput)
+			}))
 			table.insert(outputLines, "")
 		end
 	end
 
-	local output = table.concat(outputLines, "\n")
-	if options.leadingNewline then
-		output = "\n" .. output
-	end
-
-	return output
+	return asciitable.applyOutputOptions(table.concat(outputLines, "\n"), options)
 end
 
 return changedetector

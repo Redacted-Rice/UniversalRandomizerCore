@@ -186,4 +186,34 @@ function asciitable.render(config)
 	return table.concat(outputLines, "\n")
 end
 
+--- Apply shared output formatting options
+-- @param output string rendered table text
+-- @param options table|nil optional formatting options
+-- @return string formatted output
+function asciitable.applyOutputOptions(output, options)
+	if not options or not options.leadingNewline then
+		return output
+	end
+
+	return "\n" .. output
+end
+
+--- Resolve a table title from explicit and fallback values
+-- @param options table formatting options
+-- @param defaultTitle string fallback title when options do not override it
+-- @return string
+function asciitable.resolveTitle(options, defaultTitle)
+	options = options or {}
+
+	if options.title then
+		return options.title
+	end
+
+	if options.moduleName then
+		return options.moduleName .. " changes"
+	end
+
+	return defaultTitle
+end
+
 return asciitable
