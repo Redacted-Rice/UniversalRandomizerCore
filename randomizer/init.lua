@@ -77,4 +77,10 @@ randomizer.Group = Group
 -- @field changedetector
 randomizer.changedetector = changedetector
 
+local datatable = require("randomizer.datatable")
+
+--- data table module for formatting object lists as ASCII tables
+-- @field datatable
+randomizer.datatable = datatable
+
 return randomizer

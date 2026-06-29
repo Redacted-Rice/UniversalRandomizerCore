@@ -748,7 +748,7 @@ describe("ChangeDetector Module", function()
 		it("should use primary and description columns from setup", function()
 			changedetector.configure(true)
 			local objects = {
-				{ id = 99, name = "Abra", hp = 30 },
+				{ id = 99, name = "monster", hp = 30 },
 			}
 
 			changedetector.monitor("Monster Cards", objects, {
@@ -766,7 +766,7 @@ describe("ChangeDetector Module", function()
 
 			assert.matches("|ID", tableOutput)
 			assert.matches("|Name", tableOutput)
-			assert.matches("|Abra", tableOutput)
+			assert.matches("|monster", tableOutput)
 			assert.matches("|99", tableOutput)
 			assert.matches("HP From", tableOutput)
 			assert.matches("HP To", tableOutput)
