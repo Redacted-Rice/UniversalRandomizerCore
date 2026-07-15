@@ -133,16 +133,24 @@ local itemPools = randomizer.group({
 })
 
 -- filter out items with length less than or equal 5 (delegate List:filter per key)
-local filtered = itemPools:applyToEachList("filter", function(item)
-	return #item > 5
-end)
+local filtered = itemPools
+	:applyToEachList("filter", function(item)
+		return #item > 5
+	end)
+	:prune()
+
+print(string.format(
+	"Filtered to %d groups / %d items",
+	filtered:groupCount(),
+	filtered:itemCount()
+))
 
 print("Original pools:")
 for key, list in pairs(itemPools:toTable()) do
 	print(string.format("  %s: %s", key, table.concat(list, ", ")))
 end
 
-print("\nFiltered pools (length > 5):")
+print("\nFiltered pools (length > 5, empty keys pruned):")
 for key, list in pairs(filtered:toTable()) do
 	print(string.format("  %s: %s", key, table.concat(list, ", ")))
 end
