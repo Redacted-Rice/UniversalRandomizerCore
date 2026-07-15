@@ -115,7 +115,7 @@ end
 -- for each item, calls mapFn(item, index) for index from startIndex to startIndex + count - 1
 -- useful for expanding by a count
 -- @param countFnOrField function or field returning a non negative integer count
--- @param mapFn optional function(item, index) returning each expanded value;
+-- @param mapFn optional function(item, index) returning each expanded value or nil to skip;
 --   defaults to { item = item, index = index }
 -- @param startIndex optional first index (default 1)
 -- @return new list of expanded values
@@ -137,7 +137,10 @@ function List:flatMapNTimes(countFnOrField, mapFn, startIndex)
 		for offset = 0, count - 1 do
 			local index = startIndex + offset
 			if mapFn ~= nil then
-				table.insert(expanded, mapFn(item, index))
+				local mapped = mapFn(item, index)
+				if mapped ~= nil then
+					table.insert(expanded, mapped)
+				end
 			else
 				table.insert(expanded, { item = item, index = index })
 			end

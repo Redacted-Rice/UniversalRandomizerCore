@@ -132,8 +132,8 @@ local itemPools = randomizer.group({
 	legendary = { "Excalibur", "Crown of Kings" },
 })
 
--- filter out items with length less than or equal 5
-local filtered = itemPools:filter(function(item)
+-- filter out items with length less than or equal 5 (delegate List:filter per key)
+local filtered = itemPools:applyToEachList("filter", function(item)
 	return #item > 5
 end)
 
