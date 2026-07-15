@@ -12,14 +12,23 @@ describe("Group Module", function()
 				type_b = { 4, 5, 6 },
 			})
 
-			assert.are.equal(2, group:size())
-			assert.is_false(group:isEmpty())
+			assert.are.equal(2, group:groupCount())
+			assert.are.equal(6, group:itemCount())
 		end)
 
 		it("should handle empty groups gracefully", function()
 			local group = randomizer.group({})
-			assert.is_true(group:isEmpty())
-			assert.are.equal(0, group:size())
+			assert.are.equal(0, group:groupCount())
+			assert.are.equal(0, group:itemCount())
+		end)
+
+		it("should count items separately from empty keyed lists", function()
+			local group = randomizer.group({
+				a = { 1, 2 },
+				b = {},
+			})
+			assert.are.equal(2, group:groupCount())
+			assert.are.equal(2, group:itemCount())
 		end)
 
 		it("should have string representation", function()
@@ -30,7 +39,7 @@ describe("Group Module", function()
 			})
 
 			local str = tostring(group)
-			assert.are.equal("Group(3 lists)", str)
+			assert.are.equal("Group(3 groups, 6 items)", str)
 		end)
 
 		it("should error when creating group with invalid value", function()
@@ -40,6 +49,36 @@ describe("Group Module", function()
 					b = "not a table",
 				})
 			end)
+		end)
+	end)
+
+	describe("Prune", function()
+		it("should remove keys with empty lists", function()
+			local group = randomizer.group({
+				a = { 1, 2 },
+				b = {},
+				c = { 3 },
+			})
+
+			local pruned = group:prune()
+			assert.are.equal(2, pruned:groupCount())
+			assert.are.equal(3, pruned:itemCount())
+			assert.is_nil(pruned:get("b"))
+			assert.are.same({ 1, 2 }, pruned:get("a"):toTable())
+			assert.are.same({ 3 }, pruned:get("c"):toTable())
+		end)
+
+		it("should return an empty group when all lists are empty", function()
+			local pruned = randomizer.group({ a = {}, b = {} }):prune()
+			assert.are.equal(0, pruned:groupCount())
+			assert.are.equal(0, pruned:itemCount())
+		end)
+
+		it("should not modify the original group", function()
+			local group = randomizer.group({ a = { 1 }, b = {} })
+			group:prune()
+			assert.are.equal(2, group:groupCount())
+			assert.is_not_nil(group:get("b"))
 		end)
 	end)
 
@@ -191,10 +230,10 @@ describe("Group Module", function()
 			})
 
 			group:add("type_b", { 4, 5, 6 })
-			assert.are.equal(2, group:size())
+			assert.are.equal(2, group:groupCount())
 
 			group:remove("type_a")
-			assert.are.equal(1, group:size())
+			assert.are.equal(1, group:groupCount())
 		end)
 
 		it("should add List instance to group", function()
@@ -203,7 +242,7 @@ describe("Group Module", function()
 
 			group:add("b", newList)
 
-			assert.are.equal(2, group:size())
+			assert.are.equal(2, group:groupCount())
 			assert.are.same({ 3, 4, 5 }, group:get("b"):toTable())
 		end)
 
@@ -255,8 +294,67 @@ describe("Group Module", function()
 		end)
 	end)
 
-	describe("Select", function()
-		it("should select/extract field values from all lists", function()
+	describe("ApplyToEachList", function()
+		it("should apply a List method to each keyed list", function()
+			local group = randomizer.group({
+				group1 = { 1, 2, 3, 4, 5 },
+				group2 = { 6, 7, 8, 9, 10 },
+			})
+
+			local filtered = group:applyToEachList("filter", function(x)
+				return x % 2 == 0
+			end)
+			local result = filtered:toTable()
+
+			assert.are.same({ 2, 4 }, result.group1)
+			assert.are.same({ 6, 8, 10 }, result.group2)
+		end)
+
+		it("should forward extra args for methods like flatMap", function()
+			local group = randomizer.group({
+				a = { 1, 2 },
+				b = { 3 },
+			})
+			local result = group
+				:applyToEachList("flatMap", function(n)
+					return { n, n * 10 }
+				end)
+				:toTable()
+			assert.are.same({ 1, 10, 2, 20 }, result.a)
+			assert.are.same({ 3, 30 }, result.b)
+		end)
+
+		it("should chain applied List methods", function()
+			local group = randomizer.group({
+				a = { 3, 1, 2, 2 },
+				b = { 9, 5, 5 },
+			})
+			local result = group:applyToEachList("removeDuplicates"):applyToEachList("sort"):toTable()
+			assert.are.same({ 1, 2, 3 }, result.a)
+			assert.are.same({ 5, 9 }, result.b)
+		end)
+
+		it("should apply flatMapNTimes with nil-skipping mappers", function()
+			local group = randomizer.groupBy({
+				{ type = "x", n = 2, keep = true },
+				{ type = "x", n = 1, keep = false },
+				{ type = "y", n = 1, keep = true },
+			}, "type")
+
+			local result = group
+				:applyToEachList("flatMapNTimes", "n", function(item, index)
+					if not item.keep then
+						return nil
+					end
+					return item.type .. ":" .. index
+				end)
+				:toTable()
+
+			assert.are.same({ "x:1", "x:2" }, result.x)
+			assert.are.same({ "y:1" }, result.y)
+		end)
+
+		it("should apply select across all lists", function()
 			local group = randomizer.group({
 				group1 = {
 					{ id = 1, name = "Alice" },
@@ -268,136 +366,35 @@ describe("Group Module", function()
 				},
 			})
 
-			local selected = group:select("name")
-			local result = selected:toTable()
+			local result = group:applyToEachList("select", "name"):toTable()
 
 			assert.are.same({ "Alice", "Bob" }, result.group1)
 			assert.are.same({ "Charlie", "David" }, result.group2)
 		end)
 
-		it("should select/extract using a function from all lists", function()
-			local group = randomizer.group({
-				weapons = {
-					{ name = "Sword", damage = 10 },
-					{ name = "Axe", damage = 15 },
-				},
-				armor = {
-					{ name = "Shield", defense = 10 },
-					{ name = "Plate", defense = 20 },
-				},
-			})
-
-			local selected = group:select(function(item)
-				return item.damage or item.defense or 0
-			end)
-
-			local result = selected:toTable()
-			assert.are.same({ 10, 15 }, result.weapons)
-			assert.are.same({ 10, 20 }, result.armor)
-		end)
-
-		it("should skip nil values when selecting", function()
-			local group = randomizer.group({
-				a = { { name = "Alice" }, { other = "data" }, { name = "Bob" } },
-				b = { { name = "Charlie" }, { name = "David" } },
-			})
-
-			local selected = group:select("name")
-			local result = selected:toTable()
-
-			assert.are.same({ "Alice", "Bob" }, result.a)
-			assert.are.same({ "Charlie", "David" }, result.b)
-		end)
-
-		it("should error when selector is invalid type", function()
-			local group = randomizer.group({
-				a = { { value = 1 }, { value = 2 } },
-			})
-
+		it("should error when method name is unknown", function()
+			local group = randomizer.group({ a = { 1, 2 } })
 			assert.has_error(function()
-				group:select(42)
+				group:applyToEachList("notAListMethod")
+			end)
+		end)
+
+		it("should error when method name is not a string", function()
+			local group = randomizer.group({ a = { 1, 2 } })
+			assert.has_error(function()
+				group:applyToEachList(42)
 			end)
 		end)
 	end)
 
-	describe("Filter", function()
-		it("should filter all lists in a group", function()
+	describe("ToList", function()
+		it("should concatenate all grouped lists into one List", function()
 			local group = randomizer.group({
-				group1 = { 1, 2, 3, 4, 5 },
-				group2 = { 6, 7, 8, 9, 10 },
+				a = { 1, 2 },
+				b = { 3 },
 			})
-
-			local filtered = group:filter(function(x)
-				return x % 2 == 0
-			end)
-			local result = filtered:toTable()
-
-			assert.are.same({ 2, 4 }, result.group1)
-			assert.are.same({ 6, 8, 10 }, result.group2)
-		end)
-	end)
-
-	describe("Remove Duplicates", function()
-		it("should remove duplicates from all lists in a group", function()
-			local group = randomizer.group({
-				group1 = { 1, 1, 2, 2, 3 },
-				group2 = { 4, 4, 5, 5, 6 },
-			})
-
-			local unique = group:removeDuplicates()
-			local result = unique:toTable()
-
-			assert.are.same({ 1, 2, 3 }, result.group1)
-			assert.are.same({ 4, 5, 6 }, result.group2)
-		end)
-	end)
-
-	describe("Shuffle", function()
-		it("should shuffle all lists in group", function()
-			randomizer.setSeed(42)
-			local group = randomizer.group({
-				a = { 1, 2, 3, 4, 5 },
-				b = { 6, 7, 8, 9, 10 },
-			})
-
-			local shuffled = group:shuffle()
-			local result = shuffled:toTable()
-
-			-- Should have same elements but possibly different order
-			table.sort(result.a)
-			table.sort(result.b)
-			assert.are.same({ 1, 2, 3, 4, 5 }, result.a)
-			assert.are.same({ 6, 7, 8, 9, 10 }, result.b)
-		end)
-	end)
-
-	describe("Sort", function()
-		it("should sort all lists in group", function()
-			local group = randomizer.group({
-				a = { 5, 2, 8, 1 },
-				b = { 9, 3, 7, 4 },
-			})
-
-			local sorted = group:sort()
-			local result = sorted:toTable()
-
-			assert.are.same({ 1, 2, 5, 8 }, result.a)
-			assert.are.same({ 3, 4, 7, 9 }, result.b)
-		end)
-
-		it("should sort all lists with custom comparator", function()
-			local group = randomizer.group({
-				a = { 1, 2, 3 },
-				b = { 4, 5, 6 },
-			})
-
-			local sorted = group:sort(function(a, b)
-				return a > b
-			end)
-			local result = sorted:toTable()
-
-			assert.are.same({ 3, 2, 1 }, result.a)
-			assert.are.same({ 6, 5, 4 }, result.b)
+			local result = group:toList():sort():toTable()
+			assert.are.same({ 1, 2, 3 }, result)
 		end)
 	end)
 
@@ -414,7 +411,7 @@ describe("Group Module", function()
 				return item.category
 			end)
 
-			assert.are.equal(2, grouped:size())
+			assert.are.equal(2, grouped:groupCount())
 
 			local result = grouped:toTable()
 			assert.are.equal(2, #result.fruit)
@@ -433,7 +430,7 @@ describe("Group Module", function()
 			end)
 
 			-- Should only have 2 groups (nil key items are skipped)
-			assert.are.equal(2, grouped:size())
+			assert.are.equal(2, grouped:groupCount())
 		end)
 
 		it("should accept a List stream without converting to a table first", function()
@@ -446,7 +443,7 @@ describe("Group Module", function()
 			end)
 
 			local grouped = randomizer.groupBy(items, "category")
-			assert.are.equal(1, grouped:size())
+			assert.are.equal(1, grouped:groupCount())
 			assert.are.equal(2, grouped:get("fruit"):size())
 		end)
 	end)

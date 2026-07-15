@@ -255,6 +255,22 @@ describe("List Module", function()
 			end):toTable()
 			assert.are.same({ "b" }, result)
 		end)
+
+		it("should skip nil values returned from the mapper", function()
+			local list = randomizer.list({
+				{ name = "a", n = 2 },
+				{ name = "b", n = 1 },
+			})
+			local result = list
+				:flatMapNTimes("n", function(item, index)
+					if item.name == "a" and index == 2 then
+						return nil
+					end
+					return item.name .. ":" .. index
+				end)
+				:toTable()
+			assert.are.same({ "a:1", "b:1" }, result)
+		end)
 	end)
 
 	describe("Select", function()

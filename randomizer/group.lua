@@ -74,40 +74,38 @@ end
 
 --- create a group from a table or list by grouping on one field and extracting another
 -- static factory function
--- useful when you want to map a field instead of the whole item
--- for whole items use groupby instead
+-- equivalent to groupBy then applyToEachList("select", value) when a value extractor is given;
+-- for whole items use groupBy instead
 -- @param list list or table of items
 -- @param groupingFnOrField function or function name or field that returns the value to group by
--- @param valueFnOrField function or function name or field that returns the value to map by the key
+-- @param valueFnOrField optional function or function name or field that returns the value to keep
 -- @return new group object with extracted values grouped by the extracted keys
 function Group.fromField(list, groupingFnOrField, valueFnOrField)
-	local items = utils.asArray(list)
-	-- type validation for groupingfnorfield and valuefnorfield is handled by utils getvalue
+	local grouped = Group.groupBy(list, groupingFnOrField)
+	if valueFnOrField == nil then
+		return grouped
+	end
+	return grouped:applyToEachList("select", valueFnOrField)
+end
 
-	local grouped = {}
+--- apply a List method to every keyed list, returning a new Group
+-- use this instead of duplicating List APIs on Group (filter, select, flatMap, etc.)
+-- the method must return a List or array-like table
+-- @param methodName string name of a List instance method (e.g. "filter", "flatMap")
+-- @param ... arguments forwarded to that method on each list
+-- @return new Group with each list replaced by the method result
+function Group:applyToEachList(methodName, ...)
+	assert(type(methodName) == "string", "Expected method name string, got " .. type(methodName))
 
-	for _, item in ipairs(items) do
-		local key = utils.getValue(item, groupingFnOrField)
-
-		if key ~= nil then
-			if grouped[key] == nil then
-				grouped[key] = {}
-			end
-
-			local value
-			if valueFnOrField == nil then
-				-- no value extractor so use the whole item
-				value = item
-			else
-				value = utils.getValue(item, valueFnOrField, key)
-			end
-			if value ~= nil then
-				table.insert(grouped[key], value)
-			end
-		end
+	local args = table.pack(...)
+	local applied = {}
+	for key, list in pairs(self.lists) do
+		local method = list[methodName]
+		assert(type(method) == "function", "List has no method '" .. methodName .. "'")
+		applied[key] = toListObject(method(list, table.unpack(args, 1, args.n)), key)
 	end
 
-	return Group.new(grouped)
+	return Group.new(applied)
 end
 
 --- call a function for each key/list pair in the group
@@ -142,6 +140,15 @@ function Group:map(fn)
 	return List.new(mapped)
 end
 
+--- concatenate all grouped lists into a single List
+-- useful when feeding group results into APIs that expect one stream
+-- @return new List of all items across all keys
+function Group:toList()
+	return self:map(function(_, list)
+		return list
+	end):flatten()
+end
+
 --- support pairs(group) so callers can iterate key, list without :keys()/:get()
 -- @return iterator suitable for for key, list in pairs(group)
 function Group:__pairs()
@@ -164,68 +171,6 @@ end
 function Group:remove(key)
 	self.lists[key] = nil
 	return self
-end
-
---- select or extract values from items in all lists using a field or function
--- calls list select on each list in the group
--- @param selectorFnOrField function or function name or field to extract values from items
--- @return new group with extracted values from each list
-function Group:select(selectorFnOrField)
-	local selected = {}
-	for key, list in pairs(self.lists) do
-		selected[key] = list:select(selectorFnOrField)
-	end
-
-	return Group.new(selected)
-end
-
---- applies the filter to each list and returns a new group with filtered lists
--- @param predicate function that takes an item and returns whether to keep it or not true means keep
--- @return new group with filtered lists
-function Group:filter(predicate)
-	assert(type(predicate) == "function", "Expected function, got " .. type(predicate))
-
-	local filtered = {}
-	for key, list in pairs(self.lists) do
-		filtered[key] = list:filter(predicate)
-	end
-
-	return Group.new(filtered)
-end
-
---- remove duplicates from all lists in the group
--- @return new group with duplicates removed
-function Group:removeDuplicates()
-	local deduplicated = {}
-	for key, list in pairs(self.lists) do
-		deduplicated[key] = list:removeDuplicates()
-	end
-
-	return Group.new(deduplicated)
-end
-
---- shuffle all lists in the group
--- @return new group with shuffled lists
-function Group:shuffle()
-	local shuffled = {}
-	for key, list in pairs(self.lists) do
-		shuffled[key] = list:shuffle()
-	end
-
-	return Group.new(shuffled)
-end
-
---- sort all lists in the group with optional comparator
--- if no comparator is passed it will sort in natural order
--- @param compareFn optional function that takes two items returns true if first should come before second
--- @return new group with sorted lists
-function Group:sort(compareFn)
-	local sorted = {}
-	for key, list in pairs(self.lists) do
-		sorted[key] = list:sort(compareFn)
-	end
-
-	return Group.new(sorted)
 end
 
 --- randomize the items in the torandomize list using this grouped pool
@@ -290,19 +235,31 @@ function Group:useToRandomize(toRandomize, selectorFnOrField, setterFnOrField, p
 	return toRandomize
 end
 
+--- remove keys whose lists are empty
+-- @return new Group without empty lists
+function Group:prune()
+	local kept = {}
+	self:each(function(key, list)
+		if not list:isEmpty() then
+			kept[key] = list
+		end
+	end)
+	return Group.new(kept)
+end
+
 --- convert back to plain table of tables
 -- @return new table containing deepcopies of all lists in the group
 function Group:toTable()
 	local result = {}
-	for key, list in pairs(self.lists) do
+	self:each(function(key, list)
 		result[key] = list:toTable()
-	end
+	end)
 	return result
 end
 
---- get the number of groups or keys or lists in the group
--- @return number of keys or lists in the group
-function Group:size()
+--- number of keyed lists in the group
+-- @return number of groups/keys
+function Group:groupCount()
 	local count = 0
 	for _ in pairs(self.lists) do
 		count = count + 1
@@ -310,10 +267,14 @@ function Group:size()
 	return count
 end
 
---- check if group is empty
--- @return true if there are no keys or lists in the group
-function Group:isEmpty()
-	return self:size() == 0
+--- total number of items across all keyed lists
+-- @return sum of list sizes
+function Group:itemCount()
+	local count = 0
+	self:each(function(_, list)
+		count = count + list:size()
+	end)
+	return count
 end
 
 --- get the list for the passed key
@@ -324,18 +285,16 @@ function Group:get(key)
 end
 
 --- get all keys in the group
--- @return table/List of all keys in the group
+-- @return List of all keys in the group
 function Group:keys()
-	local keys = {}
-	for key in pairs(self.lists) do
-		table.insert(keys, key)
-	end
-	return List.new(keys)
+	return self:map(function(key)
+		return key
+	end)
 end
 
 -- string representation for debugging
 function Group:__tostring()
-	return "Group(" .. self:size() .. " lists)"
+	return "Group(" .. self:groupCount() .. " groups, " .. self:itemCount() .. " items)"
 end
 
 return Group
