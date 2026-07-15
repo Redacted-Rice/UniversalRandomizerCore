@@ -5,7 +5,7 @@ Lua based randomization functions to support randomizing arbitrary lists of obje
 ## Features
 
 - Chainable API: Fluent interface for composing operations
-- List/Group Management: Filter, sort, shuffle, remove duplicates, and select items
+- List/Group Management: Filter, sort, shuffle, remove duplicates, and select on Lists; Groups use `applyToEachList` / `prune` for per-key List ops
 - Pools and Grouped Pools: Define pools to pull values from including having multiple pools to select from based on conditions
 - Hybrid API: Works with both wrapper objects and plain tables
 - Type-Safe: Built-in validation and helpful error messages
@@ -156,13 +156,31 @@ A **Group** is a collection of multiple Lists, each associated with a specific k
 
 Example: a Group might have `melee = {"Sword", "Axe"}` and `ranged = {"Bow", "Crossbow"}`. When randomizing, you pick which pool to use based on the weapon's type.
 
-### Common List/Group Operations
+### Common List Operations
 
 **`select`** - Extract specific values from items. If you have a list of items with a `name` field, `select("name")` gives you a list of just the names.
 
 **`filter`** - Keep only items that match a condition. For example, `filter(function(x) return x.health > 5 end)` keeps only items with health greater than 5.
 
 **`shuffle`** - randomly reorder the items in the list. Like shuffling a deck of cards.
+
+### Group Helpers
+
+Groups do not re-expose List stream methods. Apply List ops per keyed list with **`applyToEachList`**:
+
+```lua
+local filtered = itemPools
+    :applyToEachList("filter", function(item) return #item > 5 end)
+    :prune()  -- drop keys whose lists became empty
+```
+
+**`prune`** - remove keys that currently have empty lists.
+
+**`groupCount`** / **`itemCount`** - number of keyed lists, and total items across all lists.
+
+**`map`** - map each key/list pair to a value and collect the results into a List (skips nil).
+
+**`toList`** - concatenate every keyed list into one List.
 
 ### How Randomization Works
 
