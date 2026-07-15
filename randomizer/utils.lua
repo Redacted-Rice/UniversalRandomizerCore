@@ -114,6 +114,42 @@ function utils.isGroup(object)
 	return type(object) == "table" and object._type == "Group"
 end
 
+--- check if a table is array like (sequential integer keys from 1..n, or empty)
+-- empty tables are treated as empty arrays
+-- @param tbl table to check
+-- @return true if array like
+function utils.isArrayLike(tbl)
+	if type(tbl) ~= "table" then
+		return false
+	end
+
+	local length = #tbl
+	if length == 0 then
+		return next(tbl) == nil
+	end
+
+	for i = 1, length do
+		if tbl[i] == nil then
+			return false
+		end
+	end
+
+	return true
+end
+
+--- normalize a List or plain array like table to the underlying items array
+-- allows stream APIs to accept either List objects or raw tables easily
+-- and handle them in a consistent way
+-- @param listOrTable List or table of items
+-- @return array like table of items
+function utils.asArray(listOrTable)
+	if utils.isList(listOrTable) then
+		return listOrTable.items
+	end
+	assert(type(listOrTable) == "table", "Expected List or table, got " .. type(listOrTable))
+	return listOrTable
+end
+
 --- set underlying random seed for reproducibility
 -- @param seed number to use as random seed
 function utils.setSeed(seed)

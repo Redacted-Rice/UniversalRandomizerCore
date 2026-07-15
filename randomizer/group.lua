@@ -54,12 +54,12 @@ end
 -- @param groupingFnOrField function or function name or field that returns the value to group by
 -- @return new group object with the items grouped by the extracted keys
 function Group.groupBy(list, groupingFnOrField)
-	assert(type(list) == "table", "Expected table, got " .. type(list))
+	local items = utils.asArray(list)
 	-- type validation for groupingfnorfield is handled by utils getvalue
 
 	local grouped = {}
 
-	for _, item in ipairs(list) do
+	for _, item in ipairs(items) do
 		local key = utils.getValue(item, groupingFnOrField)
 		if key ~= nil then
 			if grouped[key] == nil then
@@ -81,12 +81,12 @@ end
 -- @param valueFnOrField function or function name or field that returns the value to map by the key
 -- @return new group object with extracted values grouped by the extracted keys
 function Group.fromField(list, groupingFnOrField, valueFnOrField)
-	assert(type(list) == "table", "Expected table, got " .. type(list))
+	local items = utils.asArray(list)
 	-- type validation for groupingfnorfield and valuefnorfield is handled by utils getvalue
 
 	local grouped = {}
 
-	for _, item in ipairs(list) do
+	for _, item in ipairs(items) do
 		local key = utils.getValue(item, groupingFnOrField)
 
 		if key ~= nil then
@@ -94,10 +94,10 @@ function Group.fromField(list, groupingFnOrField, valueFnOrField)
 				grouped[key] = {}
 			end
 
-		local value
-		if valueFnOrField == nil then
-			-- no value extractor so use the whole item
-			value = item
+			local value
+			if valueFnOrField == nil then
+				-- no value extractor so use the whole item
+				value = item
 			else
 				value = utils.getValue(item, valueFnOrField, key)
 			end
@@ -108,6 +108,44 @@ function Group.fromField(list, groupingFnOrField, valueFnOrField)
 	end
 
 	return Group.new(grouped)
+end
+
+--- call a function for each key/list pair in the group
+-- useful for side effects when working with grouped streams
+-- @param fn function that takes key and list
+-- @return self to support chaining
+function Group:each(fn)
+	assert(type(fn) == "function", "Expected function, got " .. type(fn))
+
+	for key, list in pairs(self.lists) do
+		fn(key, list)
+	end
+
+	return self
+end
+
+--- map each key/list pair to a value, returning a List of results
+-- nil results are skipped. useful for collecting e.g. the first item of each group
+-- @param fn function that takes key and list and returns a value
+-- @return List of mapped values
+function Group:map(fn)
+	assert(type(fn) == "function", "Expected function, got " .. type(fn))
+
+	local mapped = {}
+	for key, list in pairs(self.lists) do
+		local value = fn(key, list)
+		if value ~= nil then
+			table.insert(mapped, value)
+		end
+	end
+
+	return List.new(mapped)
+end
+
+--- support pairs(group) so callers can iterate key, list without :keys()/:get()
+-- @return iterator suitable for for key, list in pairs(group)
+function Group:__pairs()
+	return next, self.lists, nil
 end
 
 --- add a table or list to the group with the given key
@@ -203,7 +241,7 @@ end
 -- and regenerate is false an error will be thrown if the pool is depleted and is tried to be used
 -- @return the modified torandomize list
 function Group:useToRandomize(toRandomize, selectorFnOrField, setterFnOrField, poolOptions)
-	assert(type(toRandomize) == "table", "Expected table, got " .. type(toRandomize))
+	local targets = utils.asArray(toRandomize)
 	-- type validation for selectorfnorfield and setterfnorfield is handled by utils getvalue
 
 	-- parse options
@@ -217,7 +255,7 @@ function Group:useToRandomize(toRandomize, selectorFnOrField, setterFnOrField, p
 		end
 	end
 
-	for i, item in ipairs(toRandomize) do
+	for i, item in ipairs(targets) do
 		local key = utils.getValue(item, selectorFnOrField, i)
 		local list = self.lists[key]
 
@@ -235,8 +273,8 @@ function Group:useToRandomize(toRandomize, selectorFnOrField, setterFnOrField, p
 			if #pool == 0 then
 				if regenerate then
 					-- refill this groups pool
-                    workingPools[key] = utils.deepCopy(list.items)
-                    pool = workingPools[key]
+					workingPools[key] = utils.deepCopy(list.items)
+					pool = workingPools[key]
 				else
 					error("Pool for key '" .. tostring(key) .. "' depleted and regenerate is false")
 				end
@@ -246,7 +284,7 @@ function Group:useToRandomize(toRandomize, selectorFnOrField, setterFnOrField, p
 			element = utils.randomElement(list.items)
 		end
 
-		utils.setValue(toRandomize[i], setterFnOrField, element)
+		utils.setValue(targets[i], setterFnOrField, element)
 	end
 
 	return toRandomize
@@ -286,13 +324,13 @@ function Group:get(key)
 end
 
 --- get all keys in the group
--- @return table of all keys in the group
+-- @return table/List of all keys in the group
 function Group:keys()
 	local keys = {}
 	for key in pairs(self.lists) do
 		table.insert(keys, key)
 	end
-	return keys
+	return List.new(keys)
 end
 
 -- string representation for debugging

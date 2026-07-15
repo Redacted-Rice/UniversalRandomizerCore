@@ -31,11 +31,11 @@ end
 -- @param valueFnOrField function or function name or field to extract values from objects
 -- @return new list with extracted values
 function List.fromField(list, valueFnOrField)
-	assert(type(list) == "table", "Expected table, got " .. type(list))
+	local items = utils.asArray(list)
 	-- type validation for valuefnorfield is handled by utils getvalue
 
 	local values = {}
-	for _, item in ipairs(list) do
+	for _, item in ipairs(items) do
 		local value = utils.getValue(item, valueFnOrField)
 		if value ~= nil then
 			table.insert(values, value)
@@ -61,6 +61,104 @@ function List:select(selectorFnOrField)
 	end
 
 	return List.new(selected)
+end
+
+--- flatten one level of nested lists or array like tables into a single list
+-- non list items (scalars, objects) are kept as is
+-- @return new flattened list
+function List:flatten()
+	local flat = {}
+	for _, item in ipairs(self.items) do
+		if utils.isList(item) then
+			for _, nested in ipairs(item.items) do
+				table.insert(flat, nested)
+			end
+		elseif type(item) == "table" and not utils.isGroup(item) and utils.isArrayLike(item) then
+			for _, nested in ipairs(item) do
+				table.insert(flat, nested)
+			end
+		else
+			table.insert(flat, item)
+		end
+	end
+
+	return List.new(flat)
+end
+
+--- map each item to a list or array, then flatten one level
+-- @param fn function that takes an item and optional 1-based index and returns a List, array table, or nil
+-- @return new flattened list of mapped values
+function List:flatMap(fn)
+	assert(type(fn) == "function", "Expected function, got " .. type(fn))
+
+	local flat = {}
+	for i, item in ipairs(self.items) do
+		local mapped = fn(item, i)
+		if mapped ~= nil then
+			local nestedItems
+			if utils.isList(mapped) then
+				nestedItems = mapped.items
+			else
+				assert(type(mapped) == "table", "flatMap function must return List, table, or nil")
+				nestedItems = mapped
+			end
+			for _, nested in ipairs(nestedItems) do
+				table.insert(flat, nested)
+			end
+		end
+	end
+
+	return List.new(flat)
+end
+
+--- flat map each item N times based on a count field or function
+-- for each item, calls mapFn(item, index) for index from startIndex to startIndex + count - 1
+-- useful for expanding by a count
+-- @param countFnOrField function or field returning a non negative integer count
+-- @param mapFn optional function(item, index) returning each expanded value;
+--   defaults to { item = item, index = index }
+-- @param startIndex optional first index (default 1)
+-- @return new list of expanded values
+function List:flatMapNTimes(countFnOrField, mapFn, startIndex)
+	if mapFn ~= nil then
+		assert(type(mapFn) == "function", "Expected function for mapFn, got " .. type(mapFn))
+	end
+	if startIndex == nil then
+		startIndex = 1
+	else
+		assert(type(startIndex) == "number", "Expected number for startIndex, got " .. type(startIndex))
+	end
+
+	local expanded = {}
+	for _, item in ipairs(self.items) do
+		local count = utils.getValue(item, countFnOrField)
+		assert(type(count) == "number", "flatMapNTimes count must be a number")
+		assert(count >= 0, "flatMapNTimes count must be non-negative")
+		for offset = 0, count - 1 do
+			local index = startIndex + offset
+			if mapFn ~= nil then
+				table.insert(expanded, mapFn(item, index))
+			else
+				table.insert(expanded, { item = item, index = index })
+			end
+		end
+	end
+
+	return List.new(expanded)
+end
+
+--- call a function for each item in the list
+-- useful for side effects when chaining stream operations
+-- @param fn function that takes an item and optional 1 based index
+-- @return self to support chaining
+function List:each(fn)
+	assert(type(fn) == "function", "Expected function, got " .. type(fn))
+
+	for i, item in ipairs(self.items) do
+		fn(item, i)
+	end
+
+	return self
 end
 
 --- applies the filter to the list keeping only matching items
@@ -124,7 +222,7 @@ end
 -- and regenerate is false an error will be thrown if the pool is depleted and is tried to be used
 -- @return the modified torandomize list
 function List:useToRandomize(toRandomize, setterFnOrField, poolOptions)
-	assert(type(toRandomize) == "table", "Expected table, got " .. type(toRandomize))
+	local targets = utils.asArray(toRandomize)
 	assert(#self.items > 0, "Cannot apply from empty list")
 
 	-- parse options
@@ -137,7 +235,7 @@ function List:useToRandomize(toRandomize, setterFnOrField, poolOptions)
 		workingPool = utils.deepCopy(self.items)
 	end
 
-	for i = 1, #toRandomize do
+	for i = 1, #targets do
 		local element
 		if consumable then
 			if #workingPool == 0 then
@@ -153,7 +251,7 @@ function List:useToRandomize(toRandomize, setterFnOrField, poolOptions)
 			element = utils.randomElement(self.items)
 		end
 
-		utils.setValue(toRandomize[i], setterFnOrField, element)
+		utils.setValue(targets[i], setterFnOrField, element)
 	end
 
 	return toRandomize

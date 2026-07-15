@@ -103,6 +103,17 @@ describe("List Module", function()
 		end)
 	end)
 
+	describe("Each", function()
+		it("should call the function for each item", function()
+			local list = randomizer.list({ 1, 2, 3 })
+			local seen = {}
+			list:each(function(item, index)
+				seen[index] = item
+			end)
+			assert.are.same({ 1, 2, 3 }, seen)
+		end)
+	end)
+
 	describe("Filter", function()
 		it("should filter items from a list", function()
 			local list = randomizer.list({ 1, 2, 3, 4, 5, 6 })
@@ -153,6 +164,96 @@ describe("List Module", function()
 			end)
 
 			assert.are.same({ 9, 8, 5, 2, 1 }, sorted:toTable())
+		end)
+	end)
+
+	describe("Flatten", function()
+		it("should flatten nested array tables one level", function()
+			local list = randomizer.list({
+				{ 1, 2 },
+				{ 3 },
+				{ 4, 5, 6 },
+			})
+			assert.are.same({ 1, 2, 3, 4, 5, 6 }, list:flatten():toTable())
+		end)
+
+		it("should flatten nested Lists one level", function()
+			local list = randomizer.list({
+				randomizer.list({ "a", "b" }),
+				randomizer.list({ "c" }),
+			})
+			assert.are.same({ "a", "b", "c" }, list:flatten():toTable())
+		end)
+
+		it("should keep non-list items when flattening", function()
+			local list = randomizer.list({
+				{ 1, 2 },
+				"solo",
+				{ name = "obj" },
+			})
+			local result = list:flatten():toTable()
+			assert.are.equal(1, result[1])
+			assert.are.equal(2, result[2])
+			assert.are.equal("solo", result[3])
+			assert.are.same({ name = "obj" }, result[4])
+		end)
+	end)
+
+	describe("FlatMap", function()
+		it("should map items to arrays and flatten", function()
+			local list = randomizer.list({ 1, 2, 3 })
+			local result = list:flatMap(function(n)
+				return { n, n * 10 }
+			end)
+			assert.are.same({ 1, 10, 2, 20, 3, 30 }, result:toTable())
+		end)
+
+		it("should accept Lists returned from the mapper", function()
+			local list = randomizer.list({ "a", "b" })
+			local result = list:flatMap(function(s)
+				return randomizer.list({ s, s .. s })
+			end)
+			assert.are.same({ "a", "aa", "b", "bb" }, result:toTable())
+		end)
+	end)
+
+	describe("FlatMapNTimes", function()
+		it("should expand items by a count field with default pairs", function()
+			local list = randomizer.list({
+				{ name = "a", n = 2 },
+				{ name = "b", n = 1 },
+			})
+			local result = list:flatMapNTimes("n"):toTable()
+			assert.are.equal(3, #result)
+			assert.are.equal("a", result[1].item.name)
+			assert.are.equal(1, result[1].index)
+			assert.are.equal("a", result[2].item.name)
+			assert.are.equal(2, result[2].index)
+			assert.are.equal("b", result[3].item.name)
+			assert.are.equal(1, result[3].index)
+		end)
+
+		it("should expand with a custom mapper and start index", function()
+			local list = randomizer.list({
+				{ id = "x", slots = 2 },
+			})
+			local result = list
+				:flatMapNTimes("slots", function(item, slot)
+					return item.id .. ":" .. slot
+				end, 0)
+				:toTable()
+			assert.are.same({ "x:0", "x:1" }, result)
+		end)
+
+		it("should skip items with zero count", function()
+			local list = randomizer.list({
+				{ name = "a", n = 0 },
+				{ name = "b", n = 1 },
+			})
+			local result = list:flatMapNTimes("n", function(item, index)
+				return item.name
+			end):toTable()
+			assert.are.same({ "b" }, result)
 		end)
 	end)
 
