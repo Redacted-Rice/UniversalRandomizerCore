@@ -227,16 +227,31 @@ describe("Group Module", function()
 			assert.are.same({ 1, 2, 3 }, listA:toTable())
 		end)
 
-		it("should return all keys", function()
+		it("should return all keys as a List", function()
 			local group = randomizer.group({
 				melee = { 1, 2 },
 				ranged = { 3, 4 },
 				magic = { 5, 6 },
 			})
 
-			local keys = group:keys()
-			table.sort(keys)
+			local keys = group:keys():sort():toTable()
 			assert.are.same({ "magic", "melee", "ranged" }, keys)
+		end)
+	end)
+
+	describe("Map", function()
+		it("should map each group list to a value", function()
+			local grouped = randomizer.groupBy({
+				{ name = "a", group = 1 },
+				{ name = "b", group = 1 },
+				{ name = "c", group = 2 },
+			}, "group")
+
+			local firstNames = grouped:map(function(_, list)
+				return list:get(1).name
+			end):sort():toTable()
+
+			assert.are.same({ "a", "c" }, firstNames)
 		end)
 	end)
 
@@ -419,6 +434,48 @@ describe("Group Module", function()
 
 			-- Should only have 2 groups (nil key items are skipped)
 			assert.are.equal(2, grouped:size())
+		end)
+
+		it("should accept a List stream without converting to a table first", function()
+			local items = randomizer.list({
+				{ name = "Apple", category = "fruit" },
+				{ name = "Carrot", category = "vegetable" },
+				{ name = "Banana", category = "fruit" },
+			}):filter(function(item)
+				return item.category == "fruit"
+			end)
+
+			local grouped = randomizer.groupBy(items, "category")
+			assert.are.equal(1, grouped:size())
+			assert.are.equal(2, grouped:get("fruit"):size())
+		end)
+	end)
+
+	describe("Each and pairs", function()
+		it("should iterate key and list with each", function()
+			local grouped = randomizer.group({
+				a = { 1, 2 },
+				b = { 3 },
+			})
+			local seen = {}
+			grouped:each(function(key, list)
+				seen[key] = list:size()
+			end)
+			assert.are.equal(2, seen.a)
+			assert.are.equal(1, seen.b)
+		end)
+
+		it("should support pairs(group) for key, list iteration", function()
+			local grouped = randomizer.group({
+				a = { 1, 2 },
+				b = { 3 },
+			})
+			local seen = {}
+			for key, list in pairs(grouped) do
+				seen[key] = list:size()
+			end
+			assert.are.equal(2, seen.a)
+			assert.are.equal(1, seen.b)
 		end)
 	end)
 
