@@ -217,6 +217,60 @@ function List:sort(compareFn)
 	return List.new(sorted)
 end
 
+--- find a min or max value from items using an optional extractor and compare function
+-- @local
+-- @param items array of items to inspect
+-- @param valueFnOrField optional extractor passed to utils.getValue
+-- @param compareFn optional function(a, b) returning true when a wins over b
+-- @param defaultCompare compare function used when compareFn is nil
+-- @return winning value, or nil when no comparable values were found
+local function findMinMax(items, valueFnOrField, compareFn, defaultCompare)
+	local wins = compareFn or defaultCompare
+	if compareFn ~= nil then
+		assert(type(compareFn) == "function", "Expected function for compareFn, got " .. type(compareFn))
+	end
+
+	local best = nil
+	for _, item in ipairs(items) do
+		local value = valueFnOrField ~= nil and utils.getValue(item, valueFnOrField) or item
+		if value ~= nil and (best == nil or wins(value, best)) then
+			best = value
+		end
+	end
+
+	return best
+end
+
+--- return the maximum value in the list
+-- @param valueFnOrField optional function, method name, or field used to extract a comparable value from each item;
+--   when omitted each item is compared directly
+-- @param compareFn optional function(a, b) returning true when a should win over b as the maximum
+-- @return maximum value, or nil when the list is empty
+function List:max(valueFnOrField, compareFn)
+	if self:isEmpty() then
+		return nil
+	end
+
+	return findMinMax(self.items, valueFnOrField, compareFn, function(a, b)
+		return a > b
+	end)
+end
+
+--- return the minimum value in the list
+-- @param valueFnOrField optional function, method name, or field used to extract a comparable value from each item;
+--   when omitted each item is compared directly
+-- @param compareFn optional function(a, b) returning true when a should win over b as the minimum
+-- @return minimum value, or nil when the list is empty
+function List:min(valueFnOrField, compareFn)
+	if self:isEmpty() then
+		return nil
+	end
+
+	return findMinMax(self.items, valueFnOrField, compareFn, function(a, b)
+		return a < b
+	end)
+end
+
 --- randomize a field of the items in the torandomize list using this pool
 -- @param toRandomize list or table of items to randomize in place
 -- @param setterFnOrField function or function name or field that sets the value on the item
