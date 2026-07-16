@@ -167,6 +167,65 @@ describe("List Module", function()
 		end)
 	end)
 
+	describe("Max and Min", function()
+		it("should return max and min values from a numeric list", function()
+			local list = randomizer.list({ 5, 2, 8, 1, 9 })
+
+			assert.are.equal(9, list:max())
+			assert.are.equal(1, list:min())
+		end)
+
+		it("should return nil for max and min on an empty list", function()
+			local list = randomizer.list({})
+
+			assert.is_nil(list:max())
+			assert.is_nil(list:min())
+		end)
+
+		it("should return max and min using a field extractor", function()
+			local list = randomizer.list({
+				{ hp = 40 },
+				{ hp = 70 },
+				{ hp = 50 },
+			})
+
+			assert.are.equal(70, list:max("hp"))
+			assert.are.equal(40, list:min("hp"))
+		end)
+
+		it("should return max and min using a custom compare function", function()
+			local list = randomizer.list({ 5, 10, 7 })
+
+			local function closerToNine(a, b)
+				return math.abs(a - 9) < math.abs(b - 9)
+			end
+
+			assert.are.equal(10, list:max(nil, closerToNine))
+			assert.are.equal(5, list:min(nil, closerToNine))
+		end)
+
+		it("should return max and min using a field extractor and custom compare function", function()
+			local list = randomizer.list({
+				{ name = "low", hp = 40 },
+				{ name = "high", hp = 70 },
+				{ name = "mid", hp = 50 },
+			})
+
+			assert.are.equal(
+				"mid",
+				list:max("name", function(a, b)
+					return #a > #b
+				end)
+			)
+			assert.are.equal(
+				"high",
+				list:min("name", function(a, b)
+					return #a > #b
+				end)
+			)
+		end)
+	end)
+
 	describe("Flatten", function()
 		it("should flatten nested array tables one level", function()
 			local list = randomizer.list({
