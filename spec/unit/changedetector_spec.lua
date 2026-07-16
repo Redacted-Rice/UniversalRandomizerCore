@@ -186,6 +186,55 @@ describe("ChangeDetector Module", function()
 		end)
 	end)
 
+	describe("addFields", function()
+		it("should append missing fields to an existing entry", function()
+			local objects = {
+				{ id = 1, hp = 40, evoLineId = 2 },
+			}
+			monitorFields("test_entry", objects, { "hp" })
+
+			local added = changedetector.addFields("test_entry", {
+				{ field = "hp_bracket", header = "HP Bracket", align = "right" },
+			})
+
+			assert.are.equal(1, added)
+
+			changedetector.configure(true)
+			changedetector.takeSnapshots()
+			objects[1].hp_bracket = "A"
+			objects[1].hp = 40
+
+			local changes = changedetector.detectChanges()
+			assert.is_true(changedetector.hasChanges(changes))
+			-- Unchanged fields keep current value in From and "-" in To
+			assert.are.equal("40", changes["test_entry"]["1"].hp.old)
+			assert.are.equal("-", changes["test_entry"]["1"].hp.new)
+			assert.are.equal("", changes["test_entry"]["1"].hp_bracket.old)
+			assert.are.equal("A", changes["test_entry"]["1"].hp_bracket.new)
+		end)
+
+		it("should skip fields that are already monitored", function()
+			local objects = { { id = 1, hp = 40 } }
+			monitorFields("test_entry", objects, { "hp" })
+
+			local added = changedetector.addFields("test_entry", {
+				{ field = "hp", header = "HP" },
+                { field = "hp_bracket", header = "HP Bracket" },
+			})
+
+			assert.are.equal(1, added)
+		end)
+
+		it("should warn and return 0 when entry is missing", function()
+			local added = withSuppressedOutput(function()
+				return changedetector.addFields("missing", {
+					{ field = "hp", header = "HP" },
+				})
+			end)
+			assert.are.equal(0, added)
+		end)
+	end)
+
 	describe("stopMonitoring", function()
 		it("should stop monitoring a specific entry", function()
 			local objects = { { value = 1 } }
@@ -599,9 +648,9 @@ describe("ChangeDetector Module", function()
 			objects[1].value = 10
 
 			local changes = changedetector.detectChanges()
-			-- nil fields are not captured in snapshot, so this shouldn't detect change
-			-- This is expected behavior based on the implementation
-			assert.is_false(changedetector.hasChanges(changes))
+			assert.is_true(changedetector.hasChanges(changes))
+			assert.are.equal("", changes.test["1"].value.old)
+			assert.are.equal("10", changes.test["1"].value.new)
 		end)
 
 		it("should not detect changes when only unmonitored fields change", function()
