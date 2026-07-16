@@ -794,6 +794,32 @@ describe("ChangeDetector Module", function()
 			assert.matches("|Mage", tableOutput)
 		end)
 
+		it("should omit From/To columns for fields with no changes", function()
+			changedetector.configure(true)
+			local objects = {
+				{ name = "Warrior", health = 101, damage = 21, level = 5 },
+				{ name = "Mage", health = 81, damage = 31, level = 4 },
+			}
+
+			changedetector.monitor("entities", objects, {
+				title = "entities",
+				primaryKey = { field = "name", header = "Name" },
+				fields = {
+					{ field = "health", header = "health", align = "right" },
+					{ field = "damage", header = "damage", align = "right" },
+					{ field = "level", header = "level", align = "right" },
+				},
+			})
+			changedetector.takeSnapshots()
+			objects[1].health = 95
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
+
+			assert.matches("|health From|health To|", tableOutput)
+			assert.is_nil(tableOutput:find("damage From", 1, true))
+			assert.is_nil(tableOutput:find("level From", 1, true))
+		end)
+
 		it("should use primary and description columns from setup", function()
 			changedetector.configure(true)
 			local objects = {
