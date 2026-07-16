@@ -86,6 +86,62 @@ function changedetector.monitor(entryName, objects, config)
 	monitoredEntries[entryName] = entry
 end
 
+--- Add fields to an existing monitor entry when those field keys are not already present
+-- Rebuilds change columns. Newly added fields are treated as nil in any existing
+-- snapshot so the next detectChanges can report nil -> value assignments.
+-- If a key already exists, it will be skipped. Returned count can be used to see if any
+-- keys were skipped if needed
+-- @param entryName string name of an existing monitor entry
+-- @param fieldSpecs array of field specs (same shape as monitor config fields)
+-- @return number count of fields actually added
+function changedetector.addFields(entryName, fieldSpecs)
+	if not entryName or type(fieldSpecs) ~= "table" then
+		print("Warning: Change detector: addFields requires entryName and fieldSpecs")
+		return 0
+	end
+
+	local entry = monitoredEntries[entryName]
+	if not entry then
+		print("Warning: Change detector: no monitored entry '" .. tostring(entryName) .. "' to add fields to")
+		return 0
+	end
+
+	local existingKeys = {}
+	for _, field in ipairs(entry.fields) do
+		existingKeys[field.key] = true
+	end
+
+	local addedCount = 0
+	for index, fieldSpec in ipairs(fieldSpecs) do
+		local field, fieldError = tablelayout._normalizeFieldSpec(fieldSpec)
+		if not field or not field.key then
+			print(
+				"Warning: Change detector: invalid field at index "
+					.. index
+					.. " for '"
+					.. entryName
+					.. "': "
+					.. (fieldError or "field requires field or name key")
+			)
+        -- If the key already exists, just skip it silently instead of erroring
+        -- There are cases where multiple may try to add the key in an expected way
+        -- If they want to make sure the key is added, they can check the returned
+        -- count
+		elseif not existingKeys[field.key] then
+			table.insert(entry.fields, field)
+			existingKeys[field.key] = true
+			addedCount = addedCount + 1
+		end
+	end
+
+	if addedCount == 0 then
+		return 0
+	end
+
+	entry.columns = tablelayout._buildChangeColumns(entry)
+	return addedCount
+end
+
 --- Stop monitoring a specific entry
 -- @param entryName string name of the entry to stop monitoring
 function changedetector.stopMonitoring(entryName)
@@ -140,6 +196,21 @@ function changedetector._deepCompare(v1, v2)
 	return tostring(v1) == tostring(v2)
 end
 
+--- Whether two captured field values should count as a change
+-- handles nil -> value and value -> nil as changes.
+-- @param oldValue any snapshot value (nil when absent)
+-- @param newValue any current value (nil when absent)
+-- @return boolean
+function changedetector._valuesDiffer(oldValue, newValue)
+	if oldValue == nil and newValue == nil then
+		return false
+	end
+	if oldValue == nil or newValue == nil then
+		return true
+	end
+	return not changedetector._deepCompare(oldValue, newValue)
+end
+
 --- Detect changes since last snapshot for all monitoring entries
 -- When any row in an entry changes, all rows for that entry are included in the result.
 -- Changed fields use old/new values; unchanged fields use current value in From and "-" in To.
@@ -168,7 +239,7 @@ function changedetector.detectChanges()
 				local oldValue = snapshot.state[field.key]
 				local newValue = currentState[field.key]
 
-				if oldValue ~= nil and not changedetector._deepCompare(oldValue, newValue) then
+				if changedetector._valuesDiffer(oldValue, newValue) then
 					anyChanged = true
 					rowData[field.key] = {
 						old = tablelayout._valueToString(oldValue),
