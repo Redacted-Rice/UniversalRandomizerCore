@@ -298,6 +298,18 @@ describe("List Module", function()
 			assert.are.same({ 15, 30, 45 }, selected:toTable())
 		end)
 
+		it("should forward extra arguments to getter functions", function()
+			local list = randomizer.list({
+				{ value = 2 },
+				{ value = 3 },
+			})
+			local selected = list:select(function(item, multiplier)
+				return item.value * multiplier
+			end, 10)
+
+			assert.are.same({ 20, 30 }, selected:toTable())
+		end)
+
 		it("should skip nil values when selecting", function()
 			local list = randomizer.list({
 				{ name = "Alice" },
