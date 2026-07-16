@@ -335,6 +335,48 @@ function changedetector._buildRowValues(rowChanges, columns)
 	return values
 end
 
+--- Whether any row has a real change for the given field key
+-- unchanged fields are stored with new = "-"
+-- @param entryChanges table per-entry change data from detectChanges()
+-- @param fieldKey string field key to check
+-- @return boolean
+function changedetector._fieldHasChanges(entryChanges, fieldKey)
+	for rowKey, rowChanges in pairs(entryChanges) do
+		if not changedetector._isReservedRowKey(rowKey) then
+			local change = rowChanges[fieldKey]
+			if change and change.new ~= "-" then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+--- Keep identity columns plus From/To pairs only for fields that changed
+-- @param entryChanges table per-entry change data from detectChanges()
+-- @param columns table full column definitions from monitor setup
+-- @return table filtered column definitions
+function changedetector._columnsWithChanges(entryChanges, columns)
+	local filtered = {}
+	local changedFields = {}
+
+	for _, column in ipairs(columns) do
+		if column.role == "from" or column.role == "to" then
+			if changedFields[column.fieldKey] == nil then
+				changedFields[column.fieldKey] =
+					changedetector._fieldHasChanges(entryChanges, column.fieldKey)
+			end
+			if changedFields[column.fieldKey] then
+				table.insert(filtered, column)
+			end
+		else
+			table.insert(filtered, column)
+		end
+	end
+
+	return filtered
+end
+
 --- Return row keys sorted by the configured primary key
 -- @param entryChanges table per-entry change data from detectChanges()
 -- @param primaryNumeric boolean whether the primary key sorts numerically
@@ -363,6 +405,7 @@ end
 
 --- Format detected changes as ASCII tables
 -- Layout is defined at monitor setup time and stored in each entry's _format metadata.
+-- Only From/To columns for fields that actually changed are included.
 -- @param changes table result from detectChanges()
 -- @param options table|nil optional formatting options:
 --   title string full title row text
@@ -380,7 +423,7 @@ function changedetector.formatChangesTable(changes, options)
 	for _, entryChanges in pairs(changes) do
 		if entryChanges._format then
 			local formatConfig = entryChanges._format
-			local columns = formatConfig.columns
+			local columns = changedetector._columnsWithChanges(entryChanges, formatConfig.columns)
 			local rowKeys = changedetector._sortedRowKeys(entryChanges, formatConfig.primaryNumeric)
 			local rows = {}
 
