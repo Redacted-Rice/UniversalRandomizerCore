@@ -30,17 +30,32 @@ end
 -- constructor
 -- preferred to use this when you have multiple pools
 -- @param listsMap table of lists or tables
+-- @param keyOrder optional array defining iteration order for keys
 -- @return group object
-function Group.new(listsMap)
+function Group.new(listsMap, keyOrder)
 	assert(type(listsMap) == "table", "Expected table, got " .. type(listsMap))
 
 	local self = setmetatable({}, Group)
 	self._type = "Group"
 	self.lists = {}
+	self.keyOrder = {}
 
-	-- convert plain tables to list objects and store them
-	for key, list in pairs(listsMap) do
-		self.lists[key] = toListObject(list, key)
+	local function addKey(key)
+		if listsMap[key] == nil or self.lists[key] ~= nil then
+			return
+		end
+		self.lists[key] = toListObject(listsMap[key], key)
+		table.insert(self.keyOrder, key)
+	end
+
+	if keyOrder then
+		for _, key in ipairs(keyOrder) do
+			addKey(key)
+		end
+	end
+
+	for key in pairs(listsMap) do
+		addKey(key)
 	end
 
 	return self
@@ -58,18 +73,20 @@ function Group.groupBy(list, groupingFnOrField)
 	-- type validation for groupingfnorfield is handled by utils getvalue
 
 	local grouped = {}
+	local keyOrder = {}
 
 	for _, item in ipairs(items) do
 		local key = utils.getValue(item, groupingFnOrField)
 		if key ~= nil then
 			if grouped[key] == nil then
 				grouped[key] = {}
+				table.insert(keyOrder, key)
 			end
 			table.insert(grouped[key], item)
 		end
 	end
 
-	return Group.new(grouped)
+	return Group.new(grouped, keyOrder)
 end
 
 --- create a group from a table or list by grouping on one field and extracting another
@@ -88,10 +105,12 @@ function Group.fromField(list, groupingFnOrField, valueFnOrField)
 	end
 
 	local selected = {}
+	local keyOrder = {}
 	grouped:each(function(key, list)
 		selected[key] = list:select(valueFnOrField, key)
+		table.insert(keyOrder, key)
 	end)
-	return Group.new(selected)
+	return Group.new(selected, keyOrder)
 end
 
 --- apply a List method to every keyed list, returning a new Group
@@ -105,39 +124,42 @@ function Group:applyToEachList(methodName, ...)
 
 	local args = table.pack(...)
 	local applied = {}
-	for key, list in pairs(self.lists) do
+	local keyOrder = {}
+	for _, key in ipairs(self.keyOrder) do
+		local list = self.lists[key]
 		local method = list[methodName]
 		assert(type(method) == "function", "List has no method '" .. methodName .. "'")
 		applied[key] = toListObject(method(list, table.unpack(args, 1, args.n)), key)
+		table.insert(keyOrder, key)
 	end
 
-	return Group.new(applied)
+	return Group.new(applied, keyOrder)
 end
 
 --- call a function for each key/list pair in the group
--- useful for side effects when working with grouped streams
+-- keys are visited in insertion order
 -- @param fn function that takes key and list
 -- @return self to support chaining
 function Group:each(fn)
 	assert(type(fn) == "function", "Expected function, got " .. type(fn))
 
-	for key, list in pairs(self.lists) do
-		fn(key, list)
+	for _, key in ipairs(self.keyOrder) do
+		fn(key, self.lists[key])
 	end
 
 	return self
 end
 
 --- map each key/list pair to a value, returning a List of results
--- nil results are skipped. useful for collecting e.g. the first item of each group
+-- nil results are skipped. keys are visited in insertion order
 -- @param fn function that takes key and list and returns a value
 -- @return List of mapped values
 function Group:map(fn)
 	assert(type(fn) == "function", "Expected function, got " .. type(fn))
 
 	local mapped = {}
-	for key, list in pairs(self.lists) do
-		local value = fn(key, list)
+	for _, key in ipairs(self.keyOrder) do
+		local value = fn(key, self.lists[key])
 		if value ~= nil then
 			table.insert(mapped, value)
 		end
@@ -148,15 +170,11 @@ end
 
 --- concatenate all grouped lists into a single List
 -- useful when feeding group results into APIs that expect one stream
--- items are ordered by sorted key (tostring comparison), then list order within each key
+-- items are ordered by key insertion order, then list order within each key
 -- @return new List of all items across all keys
 function Group:toList()
 	local flat = {}
-	local keys = self:keys():sort(function(a, b)
-		return tostring(a) < tostring(b)
-	end)
-	for i = 1, keys:size() do
-		local key = keys:get(i)
+	for _, key in ipairs(self.keyOrder) do
 		local list = self.lists[key]
 		for _, item in ipairs(list.items) do
 			table.insert(flat, item)
@@ -165,10 +183,44 @@ function Group:toList()
 	return List.new(flat)
 end
 
+--- reorder keys, returning a new Group with the same lists
+-- @param compareFn optional function(a, b) returning true when a comes before b
+-- @return new Group with keys sorted
+function Group:sort(compareFn)
+	local keys = utils.deepCopy(self.keyOrder)
+
+	if compareFn then
+		assert(type(compareFn) == "function", "Expected function or nil, got " .. type(compareFn))
+		table.sort(keys, compareFn)
+	else
+		table.sort(keys)
+	end
+
+	return Group.new(self.lists, keys)
+end
+
+--- randomize key order, returning a new Group with the same lists
+-- @return new Group with shuffled key order
+function Group:shuffle()
+	local keys = utils.deepCopy(self.keyOrder)
+	utils.shuffle(keys)
+	return Group.new(self.lists, keys)
+end
+
 --- support pairs(group) so callers can iterate key, list without :keys()/:get()
+-- iteration order matches insertion order
 -- @return iterator suitable for for key, list in pairs(group)
 function Group:__pairs()
-	return next, self.lists, nil
+	local keyOrder = self.keyOrder
+	local index = 0
+	return function()
+		index = index + 1
+		local key = keyOrder[index]
+		if key == nil then
+			return nil
+		end
+		return key, self.lists[key]
+	end
 end
 
 --- add a table or list to the group with the given key
@@ -177,6 +229,9 @@ end
 -- @return self to support chaining
 function Group:add(key, list)
 	assert(key ~= nil, "Key cannot be nil")
+	if self.lists[key] == nil then
+		table.insert(self.keyOrder, key)
+	end
 	self.lists[key] = toListObject(list, key)
 	return self
 end
@@ -185,7 +240,15 @@ end
 -- @param key key to remove
 -- @return self to support chaining
 function Group:remove(key)
-	self.lists[key] = nil
+	if self.lists[key] ~= nil then
+		self.lists[key] = nil
+		for i, k in ipairs(self.keyOrder) do
+			if k == key then
+				table.remove(self.keyOrder, i)
+				break
+			end
+		end
+	end
 	return self
 end
 
@@ -211,8 +274,8 @@ function Group:useToRandomize(toRandomize, selectorFnOrField, setterFnOrField, p
 	-- for consumable pools create working copies for each group
 	local workingPools = {}
 	if consumable then
-		for key, list in pairs(self.lists) do
-			workingPools[key] = utils.deepCopy(list.items)
+		for _, key in ipairs(self.keyOrder) do
+			workingPools[key] = utils.deepCopy(self.lists[key].items)
 		end
 	end
 
@@ -255,12 +318,14 @@ end
 -- @return new Group without empty lists
 function Group:prune()
 	local kept = {}
+	local keyOrder = {}
 	self:each(function(key, list)
 		if not list:isEmpty() then
 			kept[key] = list
+			table.insert(keyOrder, key)
 		end
 	end)
-	return Group.new(kept)
+	return Group.new(kept, keyOrder)
 end
 
 --- convert back to plain table of tables
@@ -276,11 +341,7 @@ end
 --- number of keyed lists in the group
 -- @return number of groups/keys
 function Group:groupCount()
-	local count = 0
-	for _ in pairs(self.lists) do
-		count = count + 1
-	end
-	return count
+	return #self.keyOrder
 end
 
 --- total number of items across all keyed lists
@@ -301,11 +362,9 @@ function Group:get(key)
 end
 
 --- get all keys in the group
--- @return List of all keys in the group
+-- @return List of all keys in insertion order
 function Group:keys()
-	return self:map(function(key)
-		return key
-	end)
+	return List.new(utils.deepCopy(self.keyOrder))
 end
 
 -- string representation for debugging

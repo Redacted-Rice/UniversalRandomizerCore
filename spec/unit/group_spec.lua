@@ -295,6 +295,62 @@ describe("Group Module", function()
 		end)
 	end)
 
+	describe("Sort and Shuffle", function()
+		it("should sort keys with a comparator", function()
+			local group = randomizer.group({
+				[10] = { 1 },
+				[2] = { 2 },
+				[1] = { 3 },
+			})
+
+			assert.are.same({ 1, 2, 10 }, group:sort(function(a, b)
+				return a < b
+			end):keys():toTable())
+		end)
+
+		it("should iterate sorted keys with each after sort", function()
+			local group = randomizer.group({
+				c = { 3 },
+				a = { 1 },
+				b = { 2 },
+			})
+
+			local visited = {}
+			group:sort(function(a, b)
+				return a < b
+			end):each(function(key)
+				table.insert(visited, key)
+			end)
+
+			assert.are.same({ "a", "b", "c" }, visited)
+		end)
+
+		it("should shuffle key order", function()
+			randomizer.setSeed(42)
+			local original = { "a", "b", "c", "d", "e" }
+			local group = randomizer.group({
+				a = { 1 },
+				b = { 2 },
+				c = { 3 },
+				d = { 4 },
+				e = { 5 },
+			}, original)
+
+			local shuffled = group:shuffle():keys():toTable()
+			assert.are_not.same(original, shuffled)
+
+			local sorted = {}
+			for _, key in ipairs(shuffled) do
+				table.insert(sorted, key)
+			end
+			table.sort(sorted)
+			assert.are.same(original, sorted)
+
+			randomizer.setSeed(42)
+			assert.are.same(shuffled, group:shuffle():keys():toTable())
+		end)
+	end)
+
 	describe("Map", function()
 		it("should map each group list to a value", function()
 			local grouped = randomizer.groupBy({
@@ -305,7 +361,7 @@ describe("Group Module", function()
 
 			local firstNames = grouped:map(function(_, list)
 				return list:get(1).name
-			end):sort():toTable()
+			end):toTable()
 
 			assert.are.same({ "a", "c" }, firstNames)
 		end)
@@ -414,13 +470,31 @@ describe("Group Module", function()
 			assert.are.same({ 1, 2, 3 }, result)
 		end)
 
-		it("should concatenate lists in sorted key order without extra sorting", function()
+		it("should concatenate lists in sorted key order when sort is called", function()
 			local group = randomizer.group({
 				z = { 30 },
 				a = { 10, 11 },
 				m = { 20 },
 			})
-			assert.are.same({ 10, 11, 20, 30 }, group:toList():toTable())
+			assert.are.same(
+				{ 10, 11, 20, 30 },
+				group:sort(function(a, b)
+					return tostring(a) < tostring(b)
+				end):toList():toTable()
+			)
+		end)
+
+		it("should concatenate lists in groupBy key order", function()
+			local items = {
+				{ id = 1, category = "fruit" },
+				{ id = 2, category = "vegetable" },
+				{ id = 3, category = "fruit" },
+			}
+
+			local group = randomizer.groupBy(items, "category")
+			assert.are.same({ 1, 3, 2 }, group:toList():map(function(item)
+				return item.id
+			end):toTable())
 		end)
 	end)
 
