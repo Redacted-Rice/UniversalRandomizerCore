@@ -123,10 +123,10 @@ function changedetector.addFields(entryName, fieldSpecs)
 					.. "': "
 					.. (fieldError or "field requires field or name key")
 			)
-        -- If the key already exists, just skip it silently instead of erroring
-        -- There are cases where multiple may try to add the key in an expected way
-        -- If they want to make sure the key is added, they can check the returned
-        -- count
+			-- If the key already exists, just skip it silently instead of erroring
+			-- There are cases where multiple may try to add the key in an expected way
+			-- If they want to make sure the key is added, they can check the returned
+			-- count
 		elseif not existingKeys[field.key] then
 			table.insert(entry.fields, field)
 			existingKeys[field.key] = true

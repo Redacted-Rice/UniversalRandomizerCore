@@ -74,7 +74,8 @@ end
 
 --- create a group from a table or list by grouping on one field and extracting another
 -- static factory function
--- equivalent to groupBy then applyToEachList("select", value) when a value extractor is given;
+-- equivalent to groupBy then per-key select when a value extractor is given;
+-- the grouping key is forwarded to function and method value extractors
 -- for whole items use groupBy instead
 -- @param list list or table of items
 -- @param groupingFnOrField function or function name or field that returns the value to group by
@@ -85,7 +86,12 @@ function Group.fromField(list, groupingFnOrField, valueFnOrField)
 	if valueFnOrField == nil then
 		return grouped
 	end
-	return grouped:applyToEachList("select", valueFnOrField)
+
+	local selected = {}
+	grouped:each(function(key, list)
+		selected[key] = list:select(valueFnOrField, key)
+	end)
+	return Group.new(selected)
 end
 
 --- apply a List method to every keyed list, returning a new Group
@@ -142,11 +148,21 @@ end
 
 --- concatenate all grouped lists into a single List
 -- useful when feeding group results into APIs that expect one stream
+-- items are ordered by sorted key (tostring comparison), then list order within each key
 -- @return new List of all items across all keys
 function Group:toList()
-	return self:map(function(_, list)
-		return list
-	end):flatten()
+	local flat = {}
+	local keys = self:keys():sort(function(a, b)
+		return tostring(a) < tostring(b)
+	end)
+	for i = 1, keys:size() do
+		local key = keys:get(i)
+		local list = self.lists[key]
+		for _, item in ipairs(list.items) do
+			table.insert(flat, item)
+		end
+	end
+	return List.new(flat)
 end
 
 --- support pairs(group) so callers can iterate key, list without :keys()/:get()

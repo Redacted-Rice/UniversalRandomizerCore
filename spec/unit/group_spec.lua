@@ -125,6 +125,23 @@ describe("Group Module", function()
 			assert.is_nil(result["nil"])
 		end)
 
+		it("should pass the grouping key to value extractor functions", function()
+			local objects = {
+				{ type = "A", values = { A = 1, B = 99 } },
+				{ type = "B", values = { A = 10, B = 20 } },
+				{ type = "A", values = { A = 3, B = 99 } },
+			}
+
+			local group = randomizer.groupFromField(objects, "type", function(obj, groupKey)
+				return obj.values[groupKey]
+			end)
+			local result = group:toTable()
+
+			table.sort(result.A)
+			assert.are.same({ 1, 3 }, result.A)
+			assert.are.same({ 20 }, result.B)
+		end)
+
 		it("should create a group with whole items when valueFnOrField is nil", function()
 			local objects = {
 				{ type = "A", name = "Item1", value = 10 },
@@ -395,6 +412,15 @@ describe("Group Module", function()
 			})
 			local result = group:toList():sort():toTable()
 			assert.are.same({ 1, 2, 3 }, result)
+		end)
+
+		it("should concatenate lists in sorted key order without extra sorting", function()
+			local group = randomizer.group({
+				z = { 30 },
+				a = { 10, 11 },
+				m = { 20 },
+			})
+			assert.are.same({ 10, 11, 20, 30 }, group:toList():toTable())
 		end)
 	end)
 

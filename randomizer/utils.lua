@@ -147,6 +147,7 @@ function utils.asArray(listOrTable)
 		return listOrTable.items
 	end
 	assert(type(listOrTable) == "table", "Expected List or table, got " .. type(listOrTable))
+	assert(utils.isArrayLike(listOrTable), "Expected array-like table, got non-sequential table")
 	return listOrTable
 end
 
