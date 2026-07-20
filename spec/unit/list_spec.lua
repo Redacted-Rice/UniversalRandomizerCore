@@ -431,6 +431,58 @@ describe("List Module", function()
 		end)
 	end)
 
+	describe("Map", function()
+		it("should map items to new values", function()
+			local list = randomizer.list({ 1, 2, 3 })
+			local mapped = list:map(function(item)
+				return item * 2
+			end)
+
+			assert.are.same({ 2, 4, 6 }, mapped:toTable())
+		end)
+
+		it("should pass the 1-based index to the map function", function()
+			local list = randomizer.list({ "a", "b", "c" })
+			local mapped = list:map(function(item, index)
+				return item .. tostring(index)
+			end)
+
+			assert.are.same({ "a1", "b2", "c3" }, mapped:toTable())
+		end)
+
+		it("should skip nil results when mapping", function()
+			local list = randomizer.list({ 1, 2, 3, 4 })
+			local mapped = list:map(function(item)
+				if item % 2 == 0 then
+					return item
+				end
+			end)
+
+			assert.are.same({ 2, 4 }, mapped:toTable())
+		end)
+
+		it("should not modify the original list", function()
+			local original = { { value = 1 }, { value = 2 } }
+			local list = randomizer.list(original)
+
+			list:map(function(item)
+				item.value = item.value * 10
+				return item.value
+			end)
+
+			assert.are.equal(1, original[1].value)
+			assert.are.equal(2, original[2].value)
+		end)
+
+		it("should error when map function is invalid type", function()
+			local list = randomizer.list({ 1, 2, 3 })
+
+			assert.has_error(function()
+				list:map(42)
+			end)
+		end)
+	end)
+
 	describe("Shuffle", function()
 		it("should shuffle items", function()
 			randomizer.setSeed(42)
@@ -493,6 +545,21 @@ describe("List Module", function()
 				assert.is_true(obj.name == "new1" or obj.name == "new2" or obj.name == "new3")
 				-- ID should be unchanged
 				assert.is_number(obj.id)
+			end
+		end)
+
+		it("should randomize using a colon-separated setter path", function()
+			randomizer.setSeed(42)
+			local objects = {
+				{ host = { value = 0 } },
+				{ host = { value = 0 } },
+			}
+			local pool = randomizer.list({ 10, 20, 30 })
+
+			pool:useToRandomize(objects, "host:value")
+
+			for _, obj in ipairs(objects) do
+				assert.is_true(obj.host.value == 10 or obj.host.value == 20 or obj.host.value == 30)
 			end
 		end)
 

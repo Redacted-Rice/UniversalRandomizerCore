@@ -182,10 +182,31 @@ function utils.consumeRandomElement(tbl)
 	return element
 end
 
+--- split a colon-separated field or method path into segments
+-- @local
+-- @param path string path with colon-separated segments
+-- @return array of path segments
+local function splitColonPath(path)
+	local parts = {}
+	for part in string.gmatch(path, "[^:]+") do
+		table.insert(parts, part)
+	end
+	return parts
+end
+
+--- check whether a string path uses colon-separated segments
+-- @local
+-- @param path string path to inspect
+-- @return true when the path contains a colon
+local function hasColonPath(path)
+	return string.find(path, ":", 1, true) ~= nil
+end
+
 --- get a value from an object using a
 -- 1 function like getvalue obj and function o return o x plus o y end
 -- 2 field name like getvalue obj and health returns obj health
 -- 3 method name like getvalue obj and gethealth calls obj gethealth
+-- 4 colon-separated path like getvalue obj and gethost type calls gethost then reads type
 -- also converts userdata like java enums to strings for use as table keys
 -- this function is the common function used by any apis that take a function to handle multiple
 -- options cleanly and consistently
@@ -202,9 +223,9 @@ function utils.getValue(object, getterFnOrField, ...)
 
 	local value
 	if getterType == "string" then
-		if string.find(getterFnOrField, ":", 1, true) then
+		if hasColonPath(getterFnOrField) then
 			value = object
-			for part in string.gmatch(getterFnOrField, "[^:]+") do
+			for _, part in ipairs(splitColonPath(getterFnOrField)) do
 				value = utils.getValue(value, part, ...)
 				if value == nil then
 					return nil
@@ -247,6 +268,7 @@ end
 -- 1 function like setvalue obj and function o v then o x equals v end and value
 -- 2 field name like setvalue obj and health and value sets obj health equals value
 -- 3 method name like setvalue obj and sethealth and value calls obj sethealth value
+-- 4 colon-separated path like setvalue obj and host value and 10 sets obj host value to 10
 -- @param object table or object to set value on
 -- @param setterFnOrField function or function name or field that sets the value on the object
 -- @param value the value to set
@@ -259,13 +281,28 @@ function utils.setValue(object, setterFnOrField, value, ...)
 	)
 
 	if setterType == "string" then
-		local member = object[setterFnOrField]
-		if type(member) == "function" then
-			-- its a method
-			member(object, value, ...)
+		if hasColonPath(setterFnOrField) then
+			local parts = splitColonPath(setterFnOrField)
+			assert(#parts > 0, "Invalid empty colon-separated path")
+
+			local target = object
+			for i = 1, #parts - 1 do
+				target = utils.getValue(target, parts[i])
+				if target == nil then
+					error("Cannot set value: path segment '" .. parts[i] .. "' resolved to nil")
+				end
+			end
+
+			utils.setValue(target, parts[#parts], value, ...)
 		else
-			-- just a field
-			object[setterFnOrField] = value
+			local member = object[setterFnOrField]
+			if type(member) == "function" then
+				-- its a method
+				member(object, value, ...)
+			else
+				-- just a field
+				object[setterFnOrField] = value
+			end
 		end
 	else
 		-- call the setter function
