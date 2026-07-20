@@ -546,6 +546,40 @@ describe("Group Module", function()
 			assert.are.equal(1, grouped:groupCount())
 			assert.are.equal(2, grouped:get("fruit"):size())
 		end)
+
+		it("should groupBy using a colon-separated getter path", function()
+			local Host = {}
+			Host.__index = Host
+
+			function Host.new(typeName)
+				local instance = setmetatable({}, Host)
+				instance.type = typeName
+				return instance
+			end
+
+			local Move = {}
+			Move.__index = Move
+
+			function Move.new(host)
+				local instance = setmetatable({}, Move)
+				instance.host = host
+				return instance
+			end
+
+			function Move:getHost()
+				return self.host
+			end
+
+			local grouped = randomizer.groupBy({
+				Move.new(Host.new("fire")),
+				Move.new(Host.new("water")),
+				Move.new(Host.new("fire")),
+			}, "getHost:type")
+
+			assert.are.equal(2, grouped:groupCount())
+			assert.are.equal(2, grouped:get("fire"):size())
+			assert.are.equal(1, grouped:get("water"):size())
+		end)
 	end)
 
 	describe("Each and pairs", function()
@@ -642,6 +676,25 @@ describe("Group Module", function()
 			-- IDs should be unchanged
 			assert.are.equal(1, weapons[1].id)
 			assert.are.equal(2, weapons[2].id)
+		end)
+
+		it("should randomize using a colon-separated selector path", function()
+			randomizer.setSeed(42)
+
+			local targets = {
+				{ host = { type = "fire" }, value = 0 },
+				{ host = { type = "water" }, value = 0 },
+			}
+
+			local pools = randomizer.group({
+				fire = { 10, 20 },
+				water = { 30, 40 },
+			})
+
+			pools:useToRandomize(targets, "host:type", "value")
+
+			assert.is_true(targets[1].value == 10 or targets[1].value == 20)
+			assert.is_true(targets[2].value == 30 or targets[2].value == 40)
 		end)
 
 		it("should randomize with custom setter function", function()

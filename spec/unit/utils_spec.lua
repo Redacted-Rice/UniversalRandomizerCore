@@ -88,6 +88,73 @@ describe("Utils Module - getValue and setValue", function()
 			assert.is_nil(utils.getValue(nil, "value"))
 		end)
 
+		it("should resolve colon-separated getter paths", function()
+			local Host = {}
+			Host.__index = Host
+
+			function Host.new(typeName)
+				local instance = setmetatable({}, Host)
+				instance.type = typeName
+				return instance
+			end
+
+			local Move = {}
+			Move.__index = Move
+
+			function Move.new(host)
+				local instance = setmetatable({}, Move)
+				instance.host = host
+				return instance
+			end
+
+			function Move:getHost()
+				return self.host
+			end
+
+			local move = Move.new(Host.new("fire"))
+			assert.are.equal("fire", utils.getValue(move, "getHost:type"))
+		end)
+
+		it("should return nil when a colon-separated path step is missing", function()
+			local move = {
+				getHost = function()
+					return nil
+				end,
+			}
+			assert.is_nil(utils.getValue(move, "getHost:type"))
+		end)
+
+		it("should forward extra arguments through colon-separated getter paths", function()
+			local Host = {}
+			Host.__index = Host
+
+			function Host.new(value)
+				local instance = setmetatable({}, Host)
+				instance.value = value
+				return instance
+			end
+
+			function Host:getScaled(multiplier)
+				return self.value * multiplier
+			end
+
+			local Wrapper = {}
+			Wrapper.__index = Wrapper
+
+			function Wrapper.new(host)
+				local instance = setmetatable({}, Wrapper)
+				instance.host = host
+				return instance
+			end
+
+			function Wrapper:getHost()
+				return self.host
+			end
+
+			local wrapper = Wrapper.new(Host.new(5))
+			assert.are.equal(15, utils.getValue(wrapper, "getHost:getScaled", 3))
+		end)
+
 		-- Note: Userdata conversion can't be tested in pure Lua since we can't create userdata
 	end)
 

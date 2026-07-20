@@ -43,6 +43,24 @@ function List:select(selectorFnOrField, ...)
 	return List.new(selected)
 end
 
+--- map each item to a new value, returning a new List
+-- nil results are skipped
+-- @param fn function that takes item and optional 1-based index and returns a value
+-- @return new list of mapped values
+function List:map(fn)
+	assert(type(fn) == "function", "Expected function, got " .. type(fn))
+
+	local mapped = {}
+	for i, item in ipairs(self.items) do
+		local value = fn(item, i)
+		if value ~= nil then
+			table.insert(mapped, value)
+		end
+	end
+
+	return List.new(mapped)
+end
+
 --- flatten one level of nested lists or array like tables into a single list
 -- non list items (scalars, objects) are kept as is
 -- @return new flattened list
@@ -202,11 +220,29 @@ end
 -- @param valueFnOrField optional extractor passed to utils.getValue
 -- @param compareFn optional function(a, b) returning true when a wins over b
 -- @param defaultCompare compare function used when compareFn is nil
+-- @param isMax true for max, false for min
 -- @return winning value, or nil when no comparable values were found
-local function findMinMax(items, valueFnOrField, compareFn, defaultCompare)
-	local wins = compareFn or defaultCompare
-	if compareFn ~= nil then
+local function findMinMax(items, valueFnOrField, compareFn, defaultCompare, isMax)
+	local wins
+	if compareFn == nil then
+		wins = defaultCompare
+	else
 		assert(type(compareFn) == "function", "Expected function for compareFn, got " .. type(compareFn))
+		if valueFnOrField == nil then
+			if isMax then
+				wins = compareFn
+			else
+				wins = function(a, b)
+					return compareFn(b, a)
+				end
+			end
+		elseif isMax then
+			wins = function(a, b)
+				return not compareFn(a, b)
+			end
+		else
+			wins = compareFn
+		end
 	end
 
 	local best = nil
@@ -232,7 +268,7 @@ function List:max(valueFnOrField, compareFn)
 
 	return findMinMax(self.items, valueFnOrField, compareFn, function(a, b)
 		return a > b
-	end)
+	end, true)
 end
 
 --- return the minimum value in the list
@@ -247,7 +283,7 @@ function List:min(valueFnOrField, compareFn)
 
 	return findMinMax(self.items, valueFnOrField, compareFn, function(a, b)
 		return a < b
-	end)
+	end, false)
 end
 
 --- randomize a field of the items in the torandomize list using this pool
