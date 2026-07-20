@@ -265,6 +265,92 @@ describe("Utils Module - getValue and setValue", function()
 			assert.are.equal(200, utils.getValue(obj, "getHealth"))
 		end)
 
+		it("should set values using a colon-separated field path", function()
+			local obj = {
+				host = { value = 0 },
+			}
+
+			utils.setValue(obj, "host:value", 42)
+
+			assert.are.equal(42, obj.host.value)
+		end)
+
+		it("should set values using a colon-separated method path", function()
+			local Host = {}
+			Host.__index = Host
+
+			function Host.new()
+				local instance = setmetatable({ value = 0 }, Host)
+				return instance
+			end
+
+			function Host:setValue(value)
+				self.value = value
+			end
+
+			local Wrapper = {}
+			Wrapper.__index = Wrapper
+
+			function Wrapper.new(host)
+				local instance = setmetatable({}, Wrapper)
+				instance.host = host
+				return instance
+			end
+
+			function Wrapper:getHost()
+				return self.host
+			end
+
+			local wrapper = Wrapper.new(Host.new())
+			utils.setValue(wrapper, "getHost:setValue", 99)
+
+			assert.are.equal(99, wrapper.host.value)
+		end)
+
+		it("should forward extra arguments to the final setter in a colon-separated path", function()
+			local Host = {}
+			Host.__index = Host
+
+			function Host.new()
+				local instance = setmetatable({ value = 0 }, Host)
+				return instance
+			end
+
+			function Host:setScaled(value, multiplier)
+				self.value = value * multiplier
+			end
+
+			local Wrapper = {}
+			Wrapper.__index = Wrapper
+
+			function Wrapper.new(host)
+				local instance = setmetatable({}, Wrapper)
+				instance.host = host
+				return instance
+			end
+
+			function Wrapper:getHost()
+				return self.host
+			end
+
+			local wrapper = Wrapper.new(Host.new())
+			utils.setValue(wrapper, "getHost:setScaled", 10, 3)
+
+			assert.are.equal(30, wrapper.host.value)
+		end)
+
+		it("should error when a colon-separated setter path step is missing", function()
+			local obj = {
+				getHost = function()
+					return nil
+				end,
+			}
+
+			assert.has_error(function()
+				utils.setValue(obj, "getHost:value", 10)
+			end)
+		end)
+
 		-- Error cases
 		it("should error when setter type is invalid", function()
 			assert.has_error(function()
