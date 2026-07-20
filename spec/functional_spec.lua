@@ -31,7 +31,7 @@ describe("Functional Tests - Typical Use Cases", function()
 				}
 
 			-- create consumable pool by extracting health values from original
-			local healthPool = randomizer.listFromField(entitiesOriginal, "health")
+			local healthPool = randomizer.list(entitiesOriginal):select("health")
 
 			-- verify pool was created correctly
 				assert.are.equal(4, healthPool:size())

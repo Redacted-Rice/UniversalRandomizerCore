@@ -24,27 +24,6 @@ function List.new(list)
 	return self
 end
 
---- create a list from a table or list by extracting values from items
--- the new list will contain one entry for each item in the passed list
--- static factory function
--- @param list table or list of items to extract values from
--- @param valueFnOrField function or function name or field to extract values from objects
--- @return new list with extracted values
-function List.fromField(list, valueFnOrField)
-	local items = utils.asArray(list)
-	-- type validation for valuefnorfield is handled by utils getvalue
-
-	local values = {}
-	for _, item in ipairs(items) do
-		local value = utils.getValue(item, valueFnOrField)
-		if value ~= nil then
-			table.insert(values, value)
-		end
-	end
-
-	return List.new(values)
-end
-
 --- select or extract values from items in the list using a field or function
 -- creates a new list with one entry for each item in the current list
 -- @param selectorFnOrField function or function name or field to extract values from items

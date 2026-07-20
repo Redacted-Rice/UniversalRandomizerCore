@@ -202,23 +202,33 @@ function utils.getValue(object, getterFnOrField, ...)
 
 	local value
 	if getterType == "string" then
-		-- handle non table/userdata objects gracefully
-		local objectType = type(object)
-		if objectType ~= "table" and objectType ~= "userdata" then
-			return nil
-		end
-
-		-- try field or method access
-		local member = object[getterFnOrField]
-		if member == nil then
-			return nil
-		end
-
-		-- if its a function call it otherwise just return the field
-		if type(member) == "function" then
-			value = member(object, ...)
+		if string.find(getterFnOrField, ":", 1, true) then
+			value = object
+			for part in string.gmatch(getterFnOrField, "[^:]+") do
+				value = utils.getValue(value, part, ...)
+				if value == nil then
+					return nil
+				end
+			end
 		else
-			value = member
+			-- handle non table/userdata objects gracefully
+			local objectType = type(object)
+			if objectType ~= "table" and objectType ~= "userdata" then
+				return nil
+			end
+
+			-- try field or method access
+			local member = object[getterFnOrField]
+			if member == nil then
+				return nil
+			end
+
+			-- if its a function call it otherwise just return the field
+			if type(member) == "function" then
+				value = member(object, ...)
+			else
+				value = member
+			end
 		end
 	else
 		-- call the getter function
