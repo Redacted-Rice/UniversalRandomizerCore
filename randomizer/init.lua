@@ -37,10 +37,6 @@ randomizer.group = Group.new
 -- @function groupBy
 randomizer.groupBy = Group.groupBy
 
---- create a list by extracting values from items
--- @function listFromField
-randomizer.listFromField = List.fromField
-
 --- create a group by grouping on one field and extracting another
 -- @function groupFromField
 randomizer.groupFromField = Group.fromField
