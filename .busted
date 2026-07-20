@@ -1,6 +1,6 @@
 return {
   _all = {
-    lua = "lua5.2",
+    lua = package.config:sub(1, 1) == "\\" and "lua52" or "lua5.2",
     verbose = true,
     coverage = false,
     output = "plainTerminal",

@@ -345,6 +345,90 @@ describe("List Module", function()
 				list:select(42)
 			end)
 		end)
+
+		it("should select values using a colon-separated getter path", function()
+			local Host = {}
+			Host.__index = Host
+
+			function Host.new(typeName)
+				local instance = setmetatable({}, Host)
+				instance.type = typeName
+				return instance
+			end
+
+			local Move = {}
+			Move.__index = Move
+
+			function Move.new(host)
+				local instance = setmetatable({}, Move)
+				instance.host = host
+				return instance
+			end
+
+			function Move:getHost()
+				return self.host
+			end
+
+			local selected = randomizer.list({
+				Move.new(Host.new("fire")),
+				Move.new(Host.new("water")),
+				Move.new(Host.new("fire")),
+			}):select("getHost:type")
+
+			assert.are.same({ "fire", "water", "fire" }, selected:toTable())
+		end)
+
+		it("should extract values from a source list via list then select", function()
+			local objects = {
+				{ value = 10 },
+				{ value = 20 },
+				{ value = nil },
+				{ other = 5 },
+			}
+
+			local list = randomizer.list(objects):select("value")
+
+			assert.are.same({ 10, 20 }, list:toTable())
+		end)
+
+		it("should extract values with a function via list then select", function()
+			local objects = {
+				{ value = 2, include = true },
+				{ value = 3, include = false },
+				{ value = 4, include = true },
+			}
+
+			local list = randomizer.list(objects):select(function(obj)
+				if obj.include then
+					return obj.value
+				end
+			end)
+
+			assert.are.same({ 2, 4 }, list:toTable())
+		end)
+
+		it("should extract values with a method name via list then select", function()
+			local Object = {}
+			Object.__index = Object
+
+			function Object.new(value)
+				local instance = setmetatable({}, Object)
+				instance.value = value or 0
+				return instance
+			end
+
+			function Object:getValue()
+				return self.value
+			end
+
+			local list = randomizer.list({
+				Object.new(2),
+				Object.new(3),
+				Object.new(4),
+			}):select("getValue")
+
+			assert.are.same({ 2, 3, 4 }, list:toTable())
+		end)
 	end)
 
 	describe("Shuffle", function()
