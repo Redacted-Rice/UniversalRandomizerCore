@@ -164,19 +164,41 @@ end
 
 --- applies the filter to the list keeping only matching items
 -- the original list is not modified
--- @param predicate function that takes an item that returns whether or not to keep the item true means keep
+-- @param predicateFnOrField function that takes an item and returns whether to keep it,
+--   or a field/method name (including colon-separated paths like "getHost:type") resolved via
+--   utils.getValue; truthy values are kept
 -- @return new list with filtered items
-function List:filter(predicate)
-	assert(type(predicate) == "function", "Expected function, got " .. type(predicate))
+function List:filter(predicateFnOrField)
+	local predicateType = type(predicateFnOrField)
+	assert(
+		predicateType == "function" or predicateType == "string",
+		"Expected function or string, got " .. predicateType
+	)
 
 	local filtered = {}
 	for i, item in ipairs(self.items) do
-		if predicate(item, i) then
+		local keep
+		if predicateType == "string" then
+			keep = utils.getValue(item, predicateFnOrField)
+		else
+			keep = predicateFnOrField(item, i)
+		end
+		if keep then
 			table.insert(filtered, item)
 		end
 	end
 
 	return List.new(filtered)
+end
+
+--- group items in this list by a field or method, returning a Group
+-- Functionally equivalent to Group.groupBy(list, groupingFnOrField) to support better chaining
+-- @param groupingFnOrField function or function name or field that returns the value to group by;
+--   colon-separated paths such as "getSourceCard:type" are supported via utils.getValue
+-- @return new Group with items grouped by the extracted keys
+function List:groupBy(groupingFnOrField)
+	local Group = require("randomizer.group")
+	return Group.groupBy(self.items, groupingFnOrField)
 end
 
 --- remove duplicate values
