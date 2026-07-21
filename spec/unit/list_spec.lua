@@ -57,6 +57,161 @@ describe("List Module", function()
 
 			assert.are.same({ 4, 5, 6 }, filtered:toTable())
 		end)
+
+		it("should filter items using a field or method name", function()
+			local list = randomizer.list({
+				{ isAttack = function()
+					return true
+				end, name = "Bite" },
+				{ isAttack = function()
+					return false
+				end, name = "Rest" },
+				{ isPokePower = function()
+					return true
+				end, name = "Heal" },
+			})
+
+			assert.are.same({ "Bite" }, list:filter("isAttack"):select("name"):toTable())
+			assert.are.same({ "Heal" }, list:filter("isPokePower"):select("name"):toTable())
+		end)
+
+		it("should filter items using a colon-separated getter path", function()
+			local Host = {}
+			Host.__index = Host
+
+			function Host.new(typeName, isActive)
+				local instance = setmetatable({}, Host)
+				instance.type = typeName
+				instance.isActive = isActive
+				return instance
+			end
+
+			local Move = {}
+			Move.__index = Move
+
+			function Move.new(host, name)
+				local instance = setmetatable({}, Move)
+				instance.host = host
+				instance.name = name
+				return instance
+			end
+
+			function Move:getHost()
+				return self.host
+			end
+
+			local list = randomizer.list({
+				Move.new(Host.new("fire", true), "Bite"),
+				Move.new(Host.new("water", false), "Splash"),
+				Move.new(Host.new("fire", true), "Ember"),
+			})
+
+			assert.are.same({ "Bite", "Ember" }, list:filter("getHost:isActive"):select("name"):toTable())
+			assert.are.same({ "Bite", "Splash", "Ember" }, list:filter("getHost:type"):select("name"):toTable())
+		end)
+	end)
+
+	describe("GroupBy", function()
+		it("should group items using a field or method name", function()
+			local grouped = randomizer.list({
+				{ type = "fire", name = "Ember" },
+				{ type = "water", name = "Splash" },
+				{ type = "fire", name = "Flamethrower" },
+			}):groupBy("type")
+
+			assert.are.same({ "Ember", "Flamethrower" }, grouped:get("fire"):select("name"):sort():toTable())
+			assert.are.same({ "Splash" }, grouped:get("water"):select("name"):toTable())
+		end)
+
+		it("should chain filter and groupBy", function()
+			local grouped = randomizer.list({
+				{ type = "fire", isAttack = function()
+					return true
+				end, name = "Bite" },
+				{ type = "fire", isAttack = function()
+					return false
+				end, name = "Rest" },
+				{ type = "water", isAttack = function()
+					return true
+				end, name = "Splash" },
+			}):filter("isAttack"):groupBy("type")
+
+			assert.are.same({ "Bite" }, grouped:get("fire"):select("name"):toTable())
+			assert.are.same({ "Splash" }, grouped:get("water"):select("name"):toTable())
+		end)
+
+		it("should groupBy using a colon-separated getter path", function()
+			local Host = {}
+			Host.__index = Host
+
+			function Host.new(typeName)
+				local instance = setmetatable({}, Host)
+				instance.type = typeName
+				return instance
+			end
+
+			local Move = {}
+			Move.__index = Move
+
+			function Move.new(host, name)
+				local instance = setmetatable({}, Move)
+				instance.host = host
+				instance.name = name
+				return instance
+			end
+
+			function Move:getHost()
+				return self.host
+			end
+
+			local grouped = randomizer.list({
+				Move.new(Host.new("fire"), "Ember"),
+				Move.new(Host.new("water"), "Splash"),
+				Move.new(Host.new("fire"), "Flamethrower"),
+			}):groupBy("getHost:type")
+
+			assert.are.same({ "Ember", "Flamethrower" }, grouped:get("fire"):select("name"):sort():toTable())
+			assert.are.same({ "Splash" }, grouped:get("water"):select("name"):toTable())
+		end)
+
+		it("should chain filter and groupBy with colon-separated paths", function()
+			local Host = {}
+			Host.__index = Host
+
+			function Host.new(typeName)
+				local instance = setmetatable({}, Host)
+				instance.type = typeName
+				return instance
+			end
+
+			local Move = {}
+			Move.__index = Move
+
+			function Move.new(host, attack, name)
+				local instance = setmetatable({}, Move)
+				instance.host = host
+				instance.attack = attack
+				instance.name = name
+				return instance
+			end
+
+			function Move:getHost()
+				return self.host
+			end
+
+			function Move:isAttack()
+				return self.attack
+			end
+
+			local grouped = randomizer.list({
+				Move.new(Host.new("fire"), true, "Bite"),
+				Move.new(Host.new("fire"), false, "Rest"),
+				Move.new(Host.new("water"), true, "Splash"),
+			}):filter("isAttack"):groupBy("getHost:type")
+
+			assert.are.same({ "Bite" }, grouped:get("fire"):select("name"):toTable())
+			assert.are.same({ "Splash" }, grouped:get("water"):select("name"):toTable())
+		end)
 	end)
 
 	describe("Remove Duplicates", function()
