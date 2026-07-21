@@ -158,7 +158,9 @@ Example: a Group might have `melee = {"Sword", "Axe"}` and `ranged = {"Bow", "Cr
 
 ### Common List Operations
 
-**`select`** - Extract specific values from items. If you have a list of items with a `name` field, `select("name")` gives you a list of just the names.
+**`select`** - Extract specific values from items. If you have a list of items with a `name` field, `select("name")` gives you a list of just the names. Use `list(items):select("field")` to build a pool from a plain table. Field and method getters also accept colon-separated paths such as `"getHost:type"`.
+
+**`map`** - Map each item to a new value with a function, returning a new List (skips nil).
 
 **`filter`** - Keep only items that match a condition. For example, `filter(function(x) return x.health > 5 end)` keeps only items with health greater than 5.
 
@@ -196,6 +198,8 @@ The library can randomize items in two ways:
 
 **`pool`** - the list or group of values that can be selected from when randomizing
 
+String getters and setters passed to `select`, `groupBy`, `useToRandomize`, and related APIs support the same colon-separated paths as `utils.getValue` / `utils.setValue` (for example `"host:type"` or `"getHost:setValue"`).
+
 **`poolOptions`** - defines how the pool behaves
 
 - **`consume`** - whether the pool is consumable or not. defaults to non-consumable. If true, when items are selected, they're removed from the pool. If false, they stay in the pool.
@@ -227,7 +231,7 @@ The files will be generated in the `docs` folder.
 
 ## Testing, Coverage, Static Analysis, and Formatting
 
-Requires **Lua 5.2** (same language level as embedded Luaj) and LuaRocks packages for that version (see below). `.busted` pins `lua5.2` as the interpreter.
+Requires **Lua 5.2** (same language level as embedded Luaj) and LuaRocks packages for that version (see below). `.busted` uses `lua5.2` on Unix and `lua52` on Windows.
 
 Uses the following modules on LuaRocks:
 - Busted — testing
@@ -247,11 +251,17 @@ Note: On Windows the busted `.bat` shim may need to be created manually.
 
 ### Running Tests
 
-From this directory, use the helper script (sets `luarocks path` for Lua 5.2):
+From this directory, use the helper script (configures LuaRocks paths for Lua 5.2):
 
 ```bash
 chmod +x run_tests.sh   # once
 ./run_tests.sh
+```
+
+On Windows:
+
+```bat
+run_tests.bat
 ```
 
 Run just functional or just unit tests:
