@@ -5,6 +5,7 @@
 
 local asciitable = require("randomizer.asciitable")
 local tablelayout = require("randomizer.tablelayout")
+local logger = require("randomizer.logger")
 
 local changedetector = {}
 
@@ -60,12 +61,12 @@ end
 --   fields array of { field or getter, header, align } tracked values
 function changedetector.monitor(entryName, objects, config)
 	if not entryName or not objects or not config then
-		print("Warning: Change detector: monitor requires entryName, objects, and config")
+		logger.warn("Change detector: monitor requires entryName, objects, and config")
 		return
 	end
 
 	if #objects == 0 then
-		print("Warning: Change detector: no objects provided for '" .. entryName .. "'")
+		logger.warn("Change detector: no objects provided for '" .. entryName .. "'")
 		return
 	end
 
@@ -96,13 +97,13 @@ end
 -- @return number count of fields actually added
 function changedetector.addFields(entryName, fieldSpecs)
 	if not entryName or type(fieldSpecs) ~= "table" then
-		print("Warning: Change detector: addFields requires entryName and fieldSpecs")
+		logger.warn("Change detector: addFields requires entryName and fieldSpecs")
 		return 0
 	end
 
 	local entry = monitoredEntries[entryName]
 	if not entry then
-		print("Warning: Change detector: no monitored entry '" .. tostring(entryName) .. "' to add fields to")
+		logger.warn("Change detector: no monitored entry '" .. tostring(entryName) .. "' to add fields to")
 		return 0
 	end
 

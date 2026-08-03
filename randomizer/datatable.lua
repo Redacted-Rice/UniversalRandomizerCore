@@ -3,6 +3,7 @@
 
 local asciitable = require("randomizer.asciitable")
 local tablelayout = require("randomizer.tablelayout")
+local logger = require("randomizer.logger")
 
 local datatable = {}
 
@@ -26,7 +27,7 @@ function datatable.format(objects, config, options)
 
 	local entry, configError = tablelayout._normalizeLayoutConfig(config)
 	if not entry then
-		print("Warning: Data table: invalid layout config: " .. (configError or "unknown error"))
+		logger.warn("Data table: invalid layout config: " .. (configError or "unknown error"))
 		return ""
 	end
 
