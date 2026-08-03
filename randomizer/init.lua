@@ -6,6 +6,8 @@
 local utils = require("randomizer.utils")
 local List = require("randomizer.list")
 local Group = require("randomizer.group")
+-- Ensure logger stub or host bridge is available before modules that log
+require("randomizer.logger")
 local changedetector = require("randomizer.changedetector")
 
 local randomizer = {}
