@@ -72,8 +72,8 @@ function changedetector.monitor(entryName, objects, config)
 
 	local entry, configError = changedetector._normalizeMonitorConfig(config)
 	if not entry then
-		print(
-			"Warning: Change detector: invalid monitor config for '"
+		logger.warn(
+			"Change detector: invalid monitor config for '"
 				.. entryName
 				.. "': "
 				.. (configError or "unknown error")
@@ -116,8 +116,8 @@ function changedetector.addFields(entryName, fieldSpecs)
 	for index, fieldSpec in ipairs(fieldSpecs) do
 		local field, fieldError = tablelayout._normalizeFieldSpec(fieldSpec)
 		if not field or not field.key then
-			print(
-				"Warning: Change detector: invalid field at index "
+			logger.warn(
+				"Change detector: invalid field at index "
 					.. index
 					.. " for '"
 					.. entryName
