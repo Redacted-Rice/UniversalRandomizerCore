@@ -376,6 +376,193 @@ describe("ChangeDetector Module", function()
 
 			assert.is_nil(changedetector.getDisplaySettings("test"))
 		end)
+
+		it("should restore intermediate layout after nested push and pop", function()
+			local objects = { { id = 1, name = "Tackle", category = "NORMAL" } }
+
+			changedetector.configure(true)
+			changedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{ field = "name", header = "Name" },
+					{ field = "category", header = "Cat" },
+				},
+			})
+
+			changedetector.pushDisplaySettings("test", {
+				summary = {
+					{ field = "category", label = "category", group = "move1" },
+				},
+				summaryGroups = {
+					{ field = "move1_additional", header = "Additional", group = "move1" },
+				},
+			})
+			changedetector.pushDisplaySettings("test", {
+				detail = { "name", "category" },
+			})
+
+			changedetector.popDisplaySettings("test")
+			assert.is_not_nil(changedetector.getDisplaySettings("test"))
+			assert.is_nil(changedetector.getDisplaySettings("test").detail)
+
+			changedetector.takeSnapshots()
+			objects[1].category = "POWER"
+
+			local formatted = changedetector.formatChangesTable(changedetector.detectChanges())
+			assert.is_true(string.find(formatted, "Additional", 1, true) ~= nil)
+			assert.is_false(string.find(formatted, "Cat From", 1, true) ~= nil)
+		end)
+
+		it("should emit entry and show Additional column when only summary fields change", function()
+			local objects = { { id = 1, name = "Tackle", category = "NORMAL" } }
+
+			changedetector.configure(true)
+			changedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{ field = "name", header = "Name" },
+					{ field = "category", header = "Cat" },
+				},
+			})
+
+			changedetector.pushDisplaySettings("test", {
+				detail = { "name" },
+				summary = {
+					{ field = "category", label = "category", group = "move1" },
+				},
+				summaryGroups = {
+					{ field = "move1_additional", header = "Additional", group = "move1" },
+				},
+			})
+			changedetector.takeSnapshots()
+			objects[1].category = "POWER"
+
+			local changes = changedetector.detectChanges()
+			assert.is_not_nil(changes.test)
+			local formatted = changedetector.formatChangesTable(changes)
+			assert.is_true(string.find(formatted, "Additional", 1, true) ~= nil)
+			assert.is_true(string.find(formatted, "category", 1, true) ~= nil)
+			assert.is_false(string.find(formatted, "Name From", 1, true) ~= nil)
+		end)
+
+		it("should omit summary group column when grouped fields are unchanged", function()
+			local objects = {
+				{ id = 1, name = "Tackle", category = "NORMAL", description = "old text" },
+			}
+
+			changedetector.configure(true)
+			changedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{ field = "name", header = "Name" },
+					{ field = "category", header = "Cat" },
+					{ field = "description", header = "Desc" },
+				},
+			})
+
+			changedetector.pushDisplaySettings("test", {
+				detail = { "name" },
+				summary = {
+					{ field = "category", label = "category", group = "move1" },
+					{ field = "description", label = "description", group = "move1" },
+				},
+				summaryGroups = {
+					{ field = "move1_additional", header = "Additional", group = "move1" },
+				},
+			})
+			changedetector.takeSnapshots()
+			objects[1].name = "Slam"
+
+			local formatted = changedetector.formatChangesTable(changedetector.detectChanges())
+			assert.is_true(string.find(formatted, "Name From", 1, true) ~= nil)
+			assert.is_false(string.find(formatted, "Additional", 1, true) ~= nil)
+		end)
+
+		it("should warn when summaryGroups field collides with a tracked field key", function()
+			local objects = { { id = 1, name = "Tackle", damage = 20 } }
+			local warnings = {}
+			local oldLogger = _G.logger
+
+			_G.logger = {
+				debug = function() end,
+				info = function() end,
+				warn = function(message)
+					table.insert(warnings, message)
+				end,
+				error = function() end,
+			}
+			package.loaded["randomizer.logger"] = nil
+			package.loaded["randomizer.changedetector"] = nil
+			local testChangedetector = require("randomizer.changedetector")
+
+			testChangedetector.configure(true)
+			testChangedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{ field = "name", header = "Name" },
+					{ field = "damage", header = "Dmg", align = "right" },
+				},
+			})
+
+			testChangedetector.pushDisplaySettings("test", {
+				summaryGroups = {
+					{ field = "name", header = "Name Summary", group = "move1" },
+				},
+			})
+
+			_G.logger = oldLogger
+			package.loaded["randomizer.logger"] = nil
+			package.loaded["randomizer.changedetector"] = nil
+			changedetector = require("randomizer.changedetector")
+
+			assert.equals(1, #warnings)
+			assert.is_true(string.find(warnings[1], "collides with tracked field", 1, true) ~= nil)
+
+			testChangedetector.popDisplaySettings("test")
+		end)
+
+		it("should warn when summary references a group with no summaryGroups entry", function()
+			local objects = { { id = 1, name = "Tackle", category = "NORMAL" } }
+			local warnings = {}
+			local oldLogger = _G.logger
+
+			_G.logger = {
+				debug = function() end,
+				info = function() end,
+				warn = function(message)
+					table.insert(warnings, message)
+				end,
+				error = function() end,
+			}
+			package.loaded["randomizer.logger"] = nil
+			package.loaded["randomizer.changedetector"] = nil
+			local testChangedetector = require("randomizer.changedetector")
+
+			testChangedetector.configure(true)
+			testChangedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{ field = "name", header = "Name" },
+					{ field = "category", header = "Cat" },
+				},
+			})
+
+			testChangedetector.pushDisplaySettings("test", {
+				summary = {
+					{ field = "category", label = "category", group = "move1" },
+				},
+			})
+
+			_G.logger = oldLogger
+			package.loaded["randomizer.logger"] = nil
+			package.loaded["randomizer.changedetector"] = nil
+			changedetector = require("randomizer.changedetector")
+
+			assert.equals(1, #warnings)
+			assert.is_true(string.find(warnings[1], "no summaryGroups entry", 1, true) ~= nil)
+
+			testChangedetector.popDisplaySettings("test")
+		end)
 	end)
 
 	describe("stopMonitoring", function()
