@@ -77,6 +77,49 @@ function changedetector._copyFields(fields)
 	return copies
 end
 
+--- Warn when a display override references a field not tracked on the entry
+-- @param entryName string monitored entry name
+-- @param baseFields table canonical tracked field definitions
+-- @param overrides table override spec passed to _applyDisplayOverrides
+function changedetector._validateDisplayOverrides(entryName, baseFields, overrides)
+	if not overrides then
+		return
+	end
+
+	local fieldsByKey = {}
+	for _, field in ipairs(baseFields) do
+		fieldsByKey[field.key] = true
+	end
+
+	local warned = {}
+
+	local function warnUnknownField(fieldKey)
+		if fieldKey == nil or fieldsByKey[fieldKey] or warned[fieldKey] then
+			return
+		end
+		warned[fieldKey] = true
+		logger.warn(
+			"Change detector: unknown display field '"
+				.. tostring(fieldKey)
+				.. "' for entry '"
+				.. tostring(entryName)
+				.. "'"
+		)
+	end
+
+	if overrides.detail then
+		for _, fieldKey in ipairs(overrides.detail) do
+			warnUnknownField(fieldKey)
+		end
+	end
+
+	if overrides.summary then
+		for _, summarySpec in ipairs(overrides.summary) do
+			warnUnknownField(summarySpec.field)
+		end
+	end
+end
+
 --- Merge runtime display overrides onto the base tracked fields
 -- Tracking always uses baseFields. Display/layout uses the merged result.
 -- @param baseFields table canonical tracked field definitions
@@ -165,6 +208,7 @@ function changedetector.pushDisplaySettings(entryName, overrides)
 		displaySettingsStack[entryName] = {}
 	end
 
+	changedetector._validateDisplayOverrides(entryName, entry.baseFields, overrides)
 	table.insert(displaySettingsStack[entryName], overrides or {})
 	changedetector._rebuildEntryDisplay(entry)
 	return true
@@ -387,7 +431,7 @@ end
 -- @param fields table normalized field definitions for the entry
 function changedetector._applySummaryGroups(rowData, fields)
 	for _, field in ipairs(fields) do
-		if field.changeDisplay == "summaryGroup" then
+		if field.changeDisplay ~= "summaryGroup" then
 			goto continue
 		end
 

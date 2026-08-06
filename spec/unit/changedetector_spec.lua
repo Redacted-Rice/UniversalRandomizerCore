@@ -288,6 +288,47 @@ describe("ChangeDetector Module", function()
 			assert.is_nil(changedetector.getDisplaySettings("test"))
 		end)
 
+		it("should warn when display overrides reference unknown fields", function()
+			local objects = { { id = 1, name = "Tackle", damage = 20 } }
+			local warnings = {}
+			local oldLogger = _G.logger
+
+			_G.logger = {
+				debug = function() end,
+				info = function() end,
+				warn = function(message)
+					table.insert(warnings, message)
+				end,
+				error = function() end,
+			}
+			package.loaded["randomizer.logger"] = nil
+			package.loaded["randomizer.changedetector"] = nil
+			local testChangedetector = require("randomizer.changedetector")
+
+			testChangedetector.configure(true)
+			testChangedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{ field = "name", header = "Name" },
+					{ field = "damage", header = "Dmg", align = "right" },
+				},
+			})
+
+			testChangedetector.pushDisplaySettings("test", {
+				detail = { "name", "cost" },
+			})
+
+			_G.logger = oldLogger
+			package.loaded["randomizer.logger"] = nil
+			package.loaded["randomizer.changedetector"] = nil
+			changedetector = require("randomizer.changedetector")
+
+			assert.equals(1, #warnings)
+			assert.is_true(string.find(warnings[1], "unknown display field 'cost'", 1, true) ~= nil)
+
+			testChangedetector.popDisplaySettings("test")
+		end)
+
 		it("should restore full detail columns after popDisplaySettings", function()
 			local objects = { { id = 1, name = "Tackle", category = "NORMAL" } }
 
