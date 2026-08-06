@@ -11,6 +11,8 @@ local changedetector = {}
 
 -- Monitored data keyed by entry name
 local monitoredEntries = {}
+-- Temporary display overrides keyed by entry name (stacked per entry)
+local displaySettingsStack = {}
 -- Is change detection active
 local isChangeDetectionActive = false
 
@@ -49,6 +51,168 @@ function changedetector._normalizeMonitorConfig(config)
 	return entry, nil
 end
 
+--- Shallow-copy one normalized field definition
+-- @param field table normalized field definition
+-- @return table copied field definition
+function changedetector._copyField(field)
+	return {
+		key = field.key,
+		header = field.header,
+		align = field.align,
+		read = field.read,
+		changeDisplay = field.changeDisplay,
+		summaryGroup = field.summaryGroup,
+		summaryLabel = field.summaryLabel,
+	}
+end
+
+--- Copy a list of normalized field definitions
+-- @param fields table array of normalized field definitions
+-- @return table copied field definitions
+function changedetector._copyFields(fields)
+	local copies = {}
+	for _, field in ipairs(fields) do
+		table.insert(copies, changedetector._copyField(field))
+	end
+	return copies
+end
+
+--- Merge runtime display overrides onto the base tracked fields
+-- Tracking always uses baseFields. Display/layout uses the merged result.
+-- @param baseFields table canonical tracked field definitions
+-- @param overrides table|nil override spec with detail, summary, and summaryGroups arrays
+-- @return table field definitions used for columns and summary rollups
+function changedetector._applyDisplayOverrides(baseFields, overrides)
+	local displayFields = changedetector._copyFields(baseFields)
+	if not overrides then
+		return displayFields
+	end
+
+	local fieldsByKey = {}
+	for _, field in ipairs(displayFields) do
+		fieldsByKey[field.key] = field
+	end
+
+	if overrides.detail then
+		for _, fieldKey in ipairs(overrides.detail) do
+			local field = fieldsByKey[fieldKey]
+			if field then
+				field.changeDisplay = "detail"
+			end
+		end
+	end
+
+	if overrides.summary then
+		for _, summarySpec in ipairs(overrides.summary) do
+			local field = fieldsByKey[summarySpec.field]
+			if field then
+				field.changeDisplay = "summary"
+				field.summaryGroup = summarySpec.group
+				field.summaryLabel = summarySpec.label or summarySpec.field
+			end
+		end
+	end
+
+	if overrides.summaryGroups then
+		for _, groupSpec in ipairs(overrides.summaryGroups) do
+			table.insert(displayFields, {
+				key = groupSpec.field,
+				header = groupSpec.header or groupSpec.field,
+				align = groupSpec.align or "left",
+				changeDisplay = "summaryGroup",
+				summaryGroup = groupSpec.group,
+				read = function()
+					return nil
+				end,
+			})
+		end
+	end
+
+	return displayFields
+end
+
+--- Rebuild display columns from baseFields plus the current override stack top
+-- @param entry table monitored entry definition
+function changedetector._rebuildEntryDisplay(entry)
+	local overrides = nil
+	local stack = displaySettingsStack[entry.entryName]
+	if stack and #stack > 0 then
+		overrides = stack[#stack]
+	end
+
+	entry.displayFields = changedetector._applyDisplayOverrides(entry.baseFields, overrides)
+	entry.columns = tablelayout._buildChangeColumns({
+		primaryKey = entry.primaryKey,
+		description = entry.description,
+		fields = entry.displayFields,
+	})
+end
+
+--- Push temporary display overrides for one monitored entry
+-- Use popDisplaySettings to restore the previous layout. Typical flow for module scripts is
+-- to push at the start of execute, let the module postscript detect/format, then pop there.
+-- @param entryName string monitored entry name
+-- @param overrides table override spec passed to _applyDisplayOverrides
+-- @return boolean true when overrides were pushed
+function changedetector.pushDisplaySettings(entryName, overrides)
+	local entry = monitoredEntries[entryName]
+	if not entry then
+		logger.warn("Change detector: no monitored entry '" .. tostring(entryName) .. "' to push display settings onto")
+		return false
+	end
+
+	if not displaySettingsStack[entryName] then
+		displaySettingsStack[entryName] = {}
+	end
+
+	table.insert(displaySettingsStack[entryName], overrides or {})
+	changedetector._rebuildEntryDisplay(entry)
+	return true
+end
+
+--- Pop the most recent display override stack entry and restore layout
+-- @param entryName string monitored entry name
+-- @return boolean true when an override was popped
+function changedetector.popDisplaySettings(entryName)
+	local entry = monitoredEntries[entryName]
+	local stack = displaySettingsStack[entryName]
+	if not entry or not stack or #stack == 0 then
+		return false
+	end
+
+	table.remove(stack)
+	changedetector._rebuildEntryDisplay(entry)
+	return true
+end
+
+--- Return a copy of the current display override for one entry, if any
+-- @param entryName string monitored entry name
+-- @return table or nil active override spec
+function changedetector.getDisplaySettings(entryName)
+	local stack = displaySettingsStack[entryName]
+	if not stack or #stack == 0 then
+		return nil
+	end
+	return stack[#stack]
+end
+
+--- Run a function with temporary display overrides, restoring afterward
+-- Useful when detect/format happen in the same script. Module postscript flows should
+-- use pushDisplaySettings/popDisplaySettings instead.
+-- @param entryName string monitored entry name
+-- @param overrides table override spec passed to _applyDisplayOverrides
+-- @param fn function callback to run while overrides are active
+-- @return any return value from fn
+function changedetector.withDisplaySettings(entryName, overrides, fn)
+	changedetector.pushDisplaySettings(entryName, overrides)
+	local ok, result = pcall(fn)
+	changedetector.popDisplaySettings(entryName)
+	if not ok then
+		error(result)
+	end
+	return result
+end
+
 --- Add a monitoring entry of objects
 -- @param entryName string name for this entry for tracking/logging
 -- @param objects array of objects to monitor
@@ -82,8 +246,12 @@ function changedetector.monitor(entryName, objects, config)
 	end
 
 	-- store data for the entry
+	entry.entryName = entryName
 	entry.objects = objects
 	entry.snapshot = nil -- Will be set when takeSnapshots is called
+	entry.baseFields = changedetector._copyFields(entry.fields)
+	displaySettingsStack[entryName] = {}
+	changedetector._rebuildEntryDisplay(entry)
 	monitoredEntries[entryName] = entry
 end
 
@@ -108,7 +276,7 @@ function changedetector.addFields(entryName, fieldSpecs)
 	end
 
 	local existingKeys = {}
-	for _, field in ipairs(entry.fields) do
+	for _, field in ipairs(entry.baseFields) do
 		existingKeys[field.key] = true
 	end
 
@@ -129,7 +297,7 @@ function changedetector.addFields(entryName, fieldSpecs)
 			-- If they want to make sure the key is added, they can check the returned
 			-- count
 		elseif not existingKeys[field.key] then
-			table.insert(entry.fields, field)
+			table.insert(entry.baseFields, field)
 			existingKeys[field.key] = true
 			addedCount = addedCount + 1
 		end
@@ -139,19 +307,21 @@ function changedetector.addFields(entryName, fieldSpecs)
 		return 0
 	end
 
-	entry.columns = tablelayout._buildChangeColumns(entry)
+	changedetector._rebuildEntryDisplay(entry)
 	return addedCount
 end
 
 --- Stop monitoring a specific entry
 -- @param entryName string name of the entry to stop monitoring
 function changedetector.stopMonitoring(entryName)
+	displaySettingsStack[entryName] = nil
 	monitoredEntries[entryName] = nil
 end
 
 --- Stop monitoring all entries
 function changedetector.stopMonitoringAll()
 	monitoredEntries = {}
+	displaySettingsStack = {}
 end
 
 --- Take a new snapshot of all configured monitoring entries
@@ -170,7 +340,7 @@ function changedetector.takeSnapshots()
 				primary = rowData.primary,
 				primarySort = rowData.primarySort,
 				description = rowData.description,
-				state = tablelayout._captureFieldState(rowData.object, entry.fields),
+				state = tablelayout._captureFieldState(rowData.object, entry.baseFields),
 			})
 		end
 
@@ -212,6 +382,41 @@ function changedetector._valuesDiffer(oldValue, newValue)
 	return not changedetector._deepCompare(oldValue, newValue)
 end
 
+--- Fill summaryGroup columns from tracked summary fields on one change row
+-- @param rowData table per object change data being built
+-- @param fields table normalized field definitions for the entry
+function changedetector._applySummaryGroups(rowData, fields)
+	for _, field in ipairs(fields) do
+		if field.changeDisplay == "summaryGroup" then
+			goto continue
+		end
+
+		local changedLabels = {}
+		for _, summaryField in ipairs(fields) do
+			if summaryField.changeDisplay == "summary" and summaryField.summaryGroup == field.summaryGroup then
+				local change = rowData[summaryField.key]
+				if change and change.new ~= "-" then
+					table.insert(changedLabels, summaryField.summaryLabel)
+				end
+			end
+		end
+
+		if #changedLabels > 0 then
+			rowData[field.key] = {
+				old = "-",
+				new = table.concat(changedLabels, ", "),
+			}
+		else
+			rowData[field.key] = {
+				old = "-",
+				new = "-",
+			}
+		end
+
+		::continue::
+	end
+end
+
 --- Detect changes since last snapshot for all monitoring entries
 -- When any row in an entry changes, all rows for that entry are included in the result.
 -- Changed fields use old/new values; unchanged fields use current value in From and "-" in To.
@@ -229,14 +434,18 @@ function changedetector.detectChanges()
 		local anyChanged = false
 
 		for _, snapshot in ipairs(entry.snapshot) do
-			local currentState = tablelayout._captureFieldState(snapshot.object, entry.fields)
+			local currentState = tablelayout._captureFieldState(snapshot.object, entry.baseFields)
 			local rowData = {
 				_primary = snapshot.primary,
 				_primarySort = snapshot.primarySort,
 				_description = snapshot.description,
 			}
 
-			for _, field in ipairs(entry.fields) do
+			for _, field in ipairs(entry.baseFields) do
+				if field.changeDisplay == "summaryGroup" then
+					goto continue_field
+				end
+
 				local oldValue = snapshot.state[field.key]
 				local newValue = currentState[field.key]
 
@@ -252,7 +461,11 @@ function changedetector.detectChanges()
 						new = "-",
 					}
 				end
+
+				::continue_field::
 			end
+
+			changedetector._applySummaryGroups(rowData, entry.displayFields)
 
 			entryChanges[snapshot.rowKey] = rowData
 		end
@@ -330,6 +543,9 @@ function changedetector._buildRowValues(rowChanges, columns)
 		elseif column.role == "to" then
 			local change = rowChanges[column.fieldKey]
 			table.insert(values, change and change.new or "")
+		elseif column.role == "summary" then
+			local change = rowChanges[column.fieldKey]
+			table.insert(values, change and change.new or "")
 		end
 	end
 
@@ -363,6 +579,14 @@ function changedetector._columnsWithChanges(entryChanges, columns)
 
 	for _, column in ipairs(columns) do
 		if column.role == "from" or column.role == "to" then
+			if changedFields[column.fieldKey] == nil then
+				changedFields[column.fieldKey] =
+					changedetector._fieldHasChanges(entryChanges, column.fieldKey)
+			end
+			if changedFields[column.fieldKey] then
+				table.insert(filtered, column)
+			end
+		elseif column.role == "summary" then
 			if changedFields[column.fieldKey] == nil then
 				changedFields[column.fieldKey] =
 					changedetector._fieldHasChanges(entryChanges, column.fieldKey)
