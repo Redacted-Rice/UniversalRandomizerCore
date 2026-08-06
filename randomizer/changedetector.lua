@@ -47,7 +47,6 @@ function changedetector._normalizeMonitorConfig(config)
 		return nil, configError
 	end
 
-	entry.columns = tablelayout._buildChangeColumns(entry)
 	return entry, nil
 end
 
@@ -75,6 +74,49 @@ function changedetector._copyFields(fields)
 		table.insert(copies, changedetector._copyField(field))
 	end
 	return copies
+end
+
+--- Shallow-copy a display override spec
+-- @param overrides table override spec passed to _applyDisplayOverrides
+-- @return table copied override spec
+function changedetector._copyDisplayOverrides(overrides)
+	if not overrides then
+		return nil
+	end
+
+	local copy = {}
+
+	if overrides.detail then
+		copy.detail = {}
+		for _, fieldKey in ipairs(overrides.detail) do
+			table.insert(copy.detail, fieldKey)
+		end
+	end
+
+	if overrides.summary then
+		copy.summary = {}
+		for _, summarySpec in ipairs(overrides.summary) do
+			table.insert(copy.summary, {
+				field = summarySpec.field,
+				label = summarySpec.label,
+				group = summarySpec.group,
+			})
+		end
+	end
+
+	if overrides.summaryGroups then
+		copy.summaryGroups = {}
+		for _, groupSpec in ipairs(overrides.summaryGroups) do
+			table.insert(copy.summaryGroups, {
+				field = groupSpec.field,
+				header = groupSpec.header,
+				group = groupSpec.group,
+				align = groupSpec.align,
+			})
+		end
+	end
+
+	return copy
 end
 
 --- Warn when a display override references a field not tracked on the entry
@@ -113,9 +155,46 @@ function changedetector._validateDisplayOverrides(entryName, baseFields, overrid
 		end
 	end
 
+	local summaryGroupIds = {}
+	if overrides.summaryGroups then
+		for _, groupSpec in ipairs(overrides.summaryGroups) do
+			if groupSpec.group then
+				summaryGroupIds[groupSpec.group] = true
+			end
+
+			if groupSpec.field and fieldsByKey[groupSpec.field] then
+				local collisionKey = "collision:" .. groupSpec.field
+				if not warned[collisionKey] then
+					warned[collisionKey] = true
+					logger.warn(
+						"Change detector: summaryGroups field '"
+							.. tostring(groupSpec.field)
+							.. "' collides with tracked field on entry '"
+							.. tostring(entryName)
+							.. "'"
+					)
+				end
+			end
+		end
+	end
+
 	if overrides.summary then
 		for _, summarySpec in ipairs(overrides.summary) do
 			warnUnknownField(summarySpec.field)
+
+			if summarySpec.group and not summaryGroupIds[summarySpec.group] then
+				local orphanKey = "orphanGroup:" .. summarySpec.group
+				if not warned[orphanKey] then
+					warned[orphanKey] = true
+					logger.warn(
+						"Change detector: summary field references group '"
+							.. tostring(summarySpec.group)
+							.. "' with no summaryGroups entry for '"
+							.. tostring(entryName)
+							.. "'"
+					)
+				end
+			end
 		end
 	end
 end
@@ -237,7 +316,7 @@ function changedetector.getDisplaySettings(entryName)
 	if not stack or #stack == 0 then
 		return nil
 	end
-	return stack[#stack]
+	return changedetector._copyDisplayOverrides(stack[#stack])
 end
 
 --- Run a function with temporary display overrides, restoring afterward
@@ -486,10 +565,6 @@ function changedetector.detectChanges()
 			}
 
 			for _, field in ipairs(entry.baseFields) do
-				if field.changeDisplay == "summaryGroup" then
-					goto continue_field
-				end
-
 				local oldValue = snapshot.state[field.key]
 				local newValue = currentState[field.key]
 
@@ -505,8 +580,6 @@ function changedetector.detectChanges()
 						new = "-",
 					}
 				end
-
-				::continue_field::
 			end
 
 			changedetector._applySummaryGroups(rowData, entry.displayFields)
