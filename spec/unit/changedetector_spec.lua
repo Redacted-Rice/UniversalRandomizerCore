@@ -235,6 +235,108 @@ describe("ChangeDetector Module", function()
 		end)
 	end)
 
+	describe("display settings", function()
+		it("should roll summary fields into one additional column while pushed", function()
+			local objects = {
+				{ id = 1, name = "Tackle", damage = 20, category = "NORMAL", description = "old text" },
+			}
+
+			changedetector.configure(true)
+			changedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{ field = "name", header = "Name" },
+					{ field = "damage", header = "Dmg", align = "right" },
+					{ field = "category", header = "Cat" },
+					{ field = "description", header = "Desc" },
+				},
+			})
+
+			changedetector.pushDisplaySettings("test", {
+				detail = { "name", "damage" },
+				summary = {
+					{ field = "category", label = "category", group = "move1" },
+					{ field = "description", label = "description", group = "move1" },
+				},
+				summaryGroups = {
+					{ field = "move1_additional", header = "Additional", group = "move1" },
+				},
+			})
+
+			changedetector.takeSnapshots()
+
+			objects[1].name = "Slam"
+			objects[1].damage = 30
+			objects[1].category = "POWER"
+			objects[1].description = "new text"
+
+			local changes = changedetector.detectChanges()
+			local row = changes.test["1"]
+
+			assert.are.equal("Tackle", row.name.old)
+			assert.are.equal("Slam", row.name.new)
+			assert.are.equal("20", row.damage.old)
+			assert.are.equal("30", row.damage.new)
+			assert.are.equal("category, description", row.move1_additional.new)
+
+			local formatted = changedetector.formatChangesTable(changes)
+			assert.is_true(string.find(formatted, "Additional", 1, true) ~= nil)
+			assert.is_true(string.find(formatted, "category, description", 1, true) ~= nil)
+			assert.is_false(string.find(formatted, "Desc From", 1, true) ~= nil)
+
+			changedetector.popDisplaySettings("test")
+			assert.is_nil(changedetector.getDisplaySettings("test"))
+		end)
+
+		it("should restore full detail columns after popDisplaySettings", function()
+			local objects = { { id = 1, name = "Tackle", category = "NORMAL" } }
+
+			changedetector.configure(true)
+			changedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = {
+					{ field = "name", header = "Name" },
+					{ field = "category", header = "Cat" },
+				},
+			})
+
+			changedetector.pushDisplaySettings("test", {
+				summary = {
+					{ field = "category", label = "category", group = "move1" },
+				},
+				summaryGroups = {
+					{ field = "move1_additional", header = "Additional", group = "move1" },
+				},
+			})
+			changedetector.popDisplaySettings("test")
+
+			changedetector.takeSnapshots()
+			objects[1].category = "POWER"
+
+			local formatted = changedetector.formatChangesTable(changedetector.detectChanges())
+			assert.is_true(string.find(formatted, "Cat From", 1, true) ~= nil)
+			assert.is_false(string.find(formatted, "Additional", 1, true) ~= nil)
+		end)
+
+		it("should restore layout after withDisplaySettings even when fn errors", function()
+			local objects = { { id = 1, value = 1 } }
+
+			changedetector.configure(true)
+			changedetector.monitor("test", objects, {
+				primaryKey = { field = "id", header = "ID", numeric = true },
+				fields = { { field = "value", header = "Value" } },
+			})
+
+			assert.has.errors(function()
+				changedetector.withDisplaySettings("test", { detail = { "value" } }, function()
+					error("boom")
+				end)
+			end)
+
+			assert.is_nil(changedetector.getDisplaySettings("test"))
+		end)
+	end)
+
 	describe("stopMonitoring", function()
 		it("should stop monitoring a specific entry", function()
 			local objects = { { value = 1 } }

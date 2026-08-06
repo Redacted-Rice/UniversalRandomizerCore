@@ -56,6 +56,9 @@ function tablelayout._normalizeFieldSpec(spec)
 		read = spec.getter or function(obj)
 			return obj[spec.field]
 		end,
+		changeDisplay = spec.changeDisplay or "detail",
+		summaryGroup = spec.summaryGroup,
+		summaryLabel = spec.summaryLabel or spec.header or key,
 	}, nil
 end
 
@@ -182,18 +185,29 @@ function tablelayout._buildChangeColumns(entry)
 	end
 
 	for _, field in ipairs(entry.fields) do
-		table.insert(columns, {
-			role = "from",
-			fieldKey = field.key,
-			header = field.header .. " From",
-			align = field.align,
-		})
-		table.insert(columns, {
-			role = "to",
-			fieldKey = field.key,
-			header = field.header .. " To",
-			align = field.align,
-		})
+		if field.changeDisplay == "summary" then
+			-- tracked for diffs but rolled into a summaryGroup column instead of From/To
+		elseif field.changeDisplay == "summaryGroup" then
+			table.insert(columns, {
+				role = "summary",
+				fieldKey = field.key,
+				header = field.header,
+				align = field.align,
+			})
+		else
+			table.insert(columns, {
+				role = "from",
+				fieldKey = field.key,
+				header = field.header .. " From",
+				align = field.align,
+			})
+			table.insert(columns, {
+				role = "to",
+				fieldKey = field.key,
+				header = field.header .. " To",
+				align = field.align,
+			})
+		end
 	end
 
 	return columns
@@ -305,10 +319,16 @@ function tablelayout._captureFieldState(obj, fields)
 	local state = {}
 
 	for _, field in ipairs(fields) do
+		if field.changeDisplay == "summaryGroup" then
+			goto continue
+		end
+
 		local value = tablelayout._readRaw(obj, field)
 		if value ~= nil then
 			state[field.key] = value
 		end
+
+		::continue::
 	end
 
 	return state
