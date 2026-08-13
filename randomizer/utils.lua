@@ -61,6 +61,9 @@ function utils.removeDuplicates(tbl)
 		local key = value
 		if type(value) == "table" then
 			key = utils.serializeForComparison(value)
+		else
+			-- userdata enums need stable string keys. identity alone is not enough across coercions
+			key = utils.asTableKey(value)
 		end
 
 		if not seen[key] then
@@ -202,12 +205,24 @@ local function hasColonPath(path)
 	return string.find(path, ":", 1, true) ~= nil
 end
 
+--- normalize a value for use as a lua table key
+-- java enums and other userdata become tostring so groupBy / lookups stay stable
+-- leave other values alone so ints and strings keep working as keys
+-- @param value value that will be used as a table key
+-- @return key-safe value
+function utils.asTableKey(value)
+	if value ~= nil and type(value) == "userdata" then
+		return tostring(value)
+	end
+	return value
+end
+
 --- get a value from an object using a
 -- 1 function like getvalue obj and function o return o x plus o y end
 -- 2 field name like getvalue obj and health returns obj health
 -- 3 method name like getvalue obj and gethealth calls obj gethealth
 -- 4 colon-separated path like getvalue obj and gethost type calls gethost then reads type
--- also converts userdata like java enums to strings for use as table keys
+-- returns the raw value including java enum userdata. for table keys use asTableKey
 -- this function is the common function used by any apis that take a function to handle multiple
 -- options cleanly and consistently
 -- @param object table or object to get value from
@@ -254,11 +269,6 @@ function utils.getValue(object, getterFnOrField, ...)
 	else
 		-- call the getter function
 		value = getterFnOrField(object, ...)
-	end
-
-	-- convert userdata to string for java enums etc so it works as table keys
-	if value ~= nil and type(value) == "userdata" then
-		value = tostring(value)
 	end
 
 	return value

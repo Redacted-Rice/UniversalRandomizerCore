@@ -194,7 +194,8 @@ end
 --- group items in this list by a field or method, returning a Group
 -- Functionally equivalent to Group.groupBy(list, groupingFnOrField) to support better chaining
 -- @param groupingFnOrField function or function name or field that returns the value to group by;
---   colon-separated paths such as "getSourceCard:type" are supported via utils.getValue
+--   colon-separated paths such as "getSourceCard:type" are supported via utils.getValue.
+--   userdata keys (java enums) are normalized with utils.asTableKey
 -- @return new Group with items grouped by the extracted keys
 function List:groupBy(groupingFnOrField)
 	local Group = require("randomizer.group")
