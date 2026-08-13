@@ -155,7 +155,27 @@ describe("Utils Module - getValue and setValue", function()
 			assert.are.equal(15, utils.getValue(wrapper, "getHost:getScaled", 3))
 		end)
 
-		-- Note: Userdata conversion can't be tested in pure Lua since we can't create userdata
+		it("should return raw field values without converting them for table keys", function()
+			-- getValue used to tostring userdata for keys. that belongs in asTableKey only
+			local obj = { label = "FIRE" }
+			assert.are.equal("FIRE", utils.getValue(obj, "label"))
+		end)
+	end)
+
+	describe("asTableKey", function()
+		it("should leave strings numbers and nil unchanged", function()
+			assert.are.equal("BASIC", utils.asTableKey("BASIC"))
+			assert.are.equal(2, utils.asTableKey(2))
+			assert.is_nil(utils.asTableKey(nil))
+		end)
+
+		it("should leave plain tables unchanged", function()
+			local tbl = { a = 1 }
+			assert.are.equal(tbl, utils.asTableKey(tbl))
+		end)
+
+		-- userdata tostring behavior is covered where java enums are available.
+		-- pure lua busted specs cannot construct userdata
 	end)
 
 	describe("setValue", function()

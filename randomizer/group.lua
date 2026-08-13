@@ -76,7 +76,8 @@ function Group.groupBy(list, groupingFnOrField)
 	local keyOrder = {}
 
 	for _, item in ipairs(items) do
-		local key = utils.getValue(item, groupingFnOrField)
+		-- asTableKey so java enums become stable string keys
+		local key = utils.asTableKey(utils.getValue(item, groupingFnOrField))
 		if key ~= nil then
 			if grouped[key] == nil then
 				grouped[key] = {}
@@ -280,7 +281,8 @@ function Group:useToRandomize(toRandomize, selectorFnOrField, setterFnOrField, p
 	end
 
 	for i, item in ipairs(targets) do
-		local key = utils.getValue(item, selectorFnOrField, i)
+		-- same asTableKey normalization as groupBy so enum selectors match
+		local key = utils.asTableKey(utils.getValue(item, selectorFnOrField, i))
 		local list = self.lists[key]
 
 		if not list then
