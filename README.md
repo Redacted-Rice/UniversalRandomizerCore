@@ -200,7 +200,7 @@ The library can randomize items in two ways:
 
 String getters and setters passed to `select`, `groupBy`, `useToRandomize`, and related APIs support the same colon-separated paths as `utils.getValue` / `utils.setValue` (for example `"host:type"` or `"getHost:setValue"`).
 
-`utils.getValue` returns the raw extracted value, including Java enum userdata. Grouping and grouped `useToRandomize` selectors pass those values through `utils.asTableKey` so userdata enums become stable string keys. Use `select` when you want the real enum value for assignment.
+`utils.getValue` returns the raw extracted value, including Java enum userdata. Grouping and grouped `useToRandomize` selectors pass those values through `utils.asTableKey` so userdata enums become stable string keys. Use `select` when you want the real enum value for assignment. After `groupBy` on an enum field, look up groups with the stringified enum name (for example `group:get("FIRE")`), not the enum userdata value.
 
 **`poolOptions`** - defines how the pool behaves
 

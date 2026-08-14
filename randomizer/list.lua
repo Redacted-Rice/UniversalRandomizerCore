@@ -28,7 +28,7 @@ end
 -- creates a new list with one entry for each item in the current list
 -- @param selectorFnOrField function or function name or field to extract values from items
 -- @param ... optional extra arguments forwarded to function or method getters
--- @return new list with extracted values
+-- @return new list with extracted values. java enum fields come back as userdata for assignment
 function List:select(selectorFnOrField, ...)
 	-- type validation for selectorfnorfield is handled by utils getvalue
 

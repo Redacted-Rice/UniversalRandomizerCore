@@ -155,11 +155,6 @@ describe("Utils Module - getValue and setValue", function()
 			assert.are.equal(15, utils.getValue(wrapper, "getHost:getScaled", 3))
 		end)
 
-		it("should return raw field values without converting them for table keys", function()
-			-- getValue used to tostring userdata for keys. that belongs in asTableKey only
-			local obj = { label = "FIRE" }
-			assert.are.equal("FIRE", utils.getValue(obj, "label"))
-		end)
 	end)
 
 	describe("asTableKey", function()
@@ -174,8 +169,16 @@ describe("Utils Module - getValue and setValue", function()
 			assert.are.equal(tbl, utils.asTableKey(tbl))
 		end)
 
-		-- userdata tostring behavior is covered where java enums are available.
+		-- enum userdata behavior is covered in RandomizerEnumSelectTest.java.
 		-- pure lua busted specs cannot construct userdata
+	end)
+
+	describe("getValue vs asTableKey", function()
+		it("should leave string extraction unchanged while asTableKey handles key normalization", function()
+			local obj = { label = "FIRE" }
+			assert.are.equal("FIRE", utils.getValue(obj, "label"))
+			assert.are.equal("FIRE", utils.asTableKey(utils.getValue(obj, "label")))
+		end)
 	end)
 
 	describe("setValue", function()
