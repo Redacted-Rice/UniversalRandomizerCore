@@ -57,7 +57,7 @@ function utils.removeDuplicates(tbl)
 	local result = {}
 
 	for _, value in ipairs(tbl) do
-		-- todo later theres probably a better way to do this than serializing and comparing the strings but it works
+		-- TODO now: theres probably a better way to do this than serializing and comparing the strings but it works
 		local key = value
 		if type(value) == "table" then
 			key = utils.serializeForComparison(value)
