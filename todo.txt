@@ -6,5 +6,4 @@ Some potential future enhancements
 - Allow for specifying a min & max and a distribution and for it to automatically handle selecting a value in range (e.g. between 60 & 80 with a guassian distribution)
 
 Some more bug like changes or fixes
-- Better error reporting
 - Do hashing or better comparison for remove duplicate than serializing

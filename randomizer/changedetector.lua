@@ -486,7 +486,7 @@ function changedetector._deepCompare(v1, v2)
 	end
 
 	-- For userdata and tables, use tostring comparison
-	-- TODO: for a true deep compare it should probably recurse
+	-- TODO now: for a true deep compare it should probably recurse
 	return tostring(v1) == tostring(v2)
 end
 
