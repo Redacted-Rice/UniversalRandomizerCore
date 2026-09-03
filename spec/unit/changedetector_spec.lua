@@ -1069,6 +1069,41 @@ describe("ChangeDetector Module", function()
 			assert.is_false(changedetector.hasChanges(changes))
 		end)
 
+		it("should treat equal table content in different instances as unchanged", function()
+			local objects = {
+				{ data = { x = 1, y = 2 } },
+			}
+
+			changedetector.configure(true)
+			monitorFields("test", objects, { "data" })
+			changedetector.takeSnapshots()
+
+			objects[1].data = { y = 2, x = 1 }
+
+			local changes = changedetector.detectChanges()
+			assert.is_false(changedetector.hasChanges(changes))
+		end)
+
+		it("should detect nested table content changes", function()
+			local objects = {
+				{ data = { nested = { a = 1, b = 2 } } },
+			}
+
+			changedetector.configure(true)
+			monitorFields("test", objects, { "data" })
+			changedetector.takeSnapshots()
+
+			objects[1].data = { nested = { a = 1, b = 3 } }
+
+			local changes = changedetector.detectChanges()
+			assert.is_true(changedetector.hasChanges(changes))
+		end)
+
+		it("should use deep comparison for _deepCompare", function()
+			assert.is_true(changedetector._deepCompare({ a = 1 }, { a = 1 }))
+			assert.is_false(changedetector._deepCompare({ a = 1 }, { a = 2 }))
+		end)
+
 		it("should handle number to nil changes", function()
 			local objects = {
 				{ value = 42 },

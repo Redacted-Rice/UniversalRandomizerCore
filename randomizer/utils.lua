@@ -46,6 +46,44 @@ function utils.deepCopy(tbl)
 	return copy
 end
 
+--- deep compare two values
+-- tables are compared recursively. userdata uses tostring
+-- @param a first value
+-- @param b second value
+-- @return true if values are equal
+function utils.deepEqual(a, b)
+	if a == b then
+		return true
+	end
+
+	local typeA = type(a)
+	local typeB = type(b)
+	if typeA ~= typeB then
+		return false
+	end
+
+	if typeA ~= "table" then
+		if typeA == "userdata" then
+			return tostring(a) == tostring(b)
+		end
+		return false
+	end
+
+	for key, value in pairs(a) do
+		if not utils.deepEqual(value, b[key]) then
+			return false
+		end
+	end
+
+	for key in pairs(b) do
+		if a[key] == nil then
+			return false
+		end
+	end
+
+	return true
+end
+
 --- remove duplicate values from an array like table
 -- note cannot not handle tables with circular references
 -- @param tbl table to remove duplicates from
@@ -53,21 +91,18 @@ end
 function utils.removeDuplicates(tbl)
 	assert(type(tbl) == "table", "Expected table, got " .. type(tbl))
 
-	local seen = {}
 	local result = {}
 
 	for _, value in ipairs(tbl) do
-		-- TODO now: theres probably a better way to do this than serializing and comparing the strings but it works
-		local key = value
-		if type(value) == "table" then
-			key = utils.serializeForComparison(value)
-		else
-			-- userdata enums need stable string keys. identity alone is not enough across coercions
-			key = utils.asTableKey(value)
+		local isDuplicate = false
+		for _, existing in ipairs(result) do
+			if utils.deepEqual(value, existing) then
+				isDuplicate = true
+				break
+			end
 		end
 
-		if not seen[key] then
-			seen[key] = true
+		if not isDuplicate then
 			table.insert(result, value)
 		end
 	end

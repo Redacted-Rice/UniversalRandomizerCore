@@ -222,7 +222,7 @@ describe("List Module", function()
 			assert.are.same({ 1, 2, 3, 4 }, unique:toTable())
 		end)
 
-		it("should remove duplicate tables using serialization", function()
+		it("should remove duplicate tables using deep comparison", function()
 			local list = randomizer.list({
 				{ id = 1, name = "a" },
 				{ id = 2, name = "b" },
