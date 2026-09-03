@@ -6,6 +6,7 @@
 local asciitable = require("randomizer.asciitable")
 local tablelayout = require("randomizer.tablelayout")
 local logger = require("randomizer.logger")
+local utils = require("randomizer.utils")
 
 local changedetector = {}
 
@@ -477,17 +478,7 @@ end
 -- @param v2 second value
 -- @return true if values are equal
 function changedetector._deepCompare(v1, v2)
-	if type(v1) ~= type(v2) then
-		return false
-	end
-
-	if type(v1) ~= "table" and type(v1) ~= "userdata" then
-		return v1 == v2
-	end
-
-	-- For userdata and tables, use tostring comparison
-	-- TODO now: for a true deep compare it should probably recurse
-	return tostring(v1) == tostring(v2)
+	return utils.deepEqual(v1, v2)
 end
 
 --- Whether two captured field values should count as a change

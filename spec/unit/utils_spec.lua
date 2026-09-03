@@ -485,6 +485,54 @@ describe("Utils Module", function()
 		end)
 	end)
 
+	describe("deepEqual", function()
+		it("should return true for equal primitives", function()
+			assert.is_true(utils.deepEqual(1, 1))
+			assert.is_true(utils.deepEqual("a", "a"))
+			assert.is_true(utils.deepEqual(true, true))
+		end)
+
+		it("should return false for unequal primitives", function()
+			assert.is_false(utils.deepEqual(1, 2))
+			assert.is_false(utils.deepEqual("a", "b"))
+		end)
+
+		it("should return false for type mismatches", function()
+			assert.is_false(utils.deepEqual(1, "1"))
+			assert.is_false(utils.deepEqual({}, 1))
+		end)
+
+		it("should handle nil values", function()
+			assert.is_true(utils.deepEqual(nil, nil))
+			assert.is_false(utils.deepEqual(nil, 1))
+			assert.is_false(utils.deepEqual(1, nil))
+		end)
+
+		it("should compare flat tables with equal content", function()
+			assert.is_true(utils.deepEqual({ a = 1, b = 2 }, { a = 1, b = 2 }))
+			assert.is_true(utils.deepEqual({ b = 2, a = 1 }, { a = 1, b = 2 }))
+		end)
+
+		it("should return false when table keys or values differ", function()
+			assert.is_false(utils.deepEqual({ a = 1 }, { a = 2 }))
+			assert.is_false(utils.deepEqual({ a = 1 }, { b = 1 }))
+			assert.is_false(utils.deepEqual({ a = 1, b = 2 }, { a = 1 }))
+		end)
+
+		it("should compare nested tables recursively", function()
+			local left = { stats = { hp = 100, moves = { "Tackle", "Growl" } } }
+			local right = { stats = { hp = 100, moves = { "Tackle", "Growl" } } }
+			assert.is_true(utils.deepEqual(left, right))
+			right.stats.moves[2] = "Scratch"
+			assert.is_false(utils.deepEqual(left, right))
+		end)
+
+		it("should return true for the same table reference", function()
+			local tbl = { x = 1 }
+			assert.is_true(utils.deepEqual(tbl, tbl))
+		end)
+	end)
+
 	describe("Remove Duplicates", function()
 		it("should remove duplicates from array", function()
 			local result = utils.removeDuplicates({ 1, 2, 2, 3, 3, 3, 4 })
@@ -494,6 +542,41 @@ describe("Utils Module", function()
 		it("should handle empty array", function()
 			local result = utils.removeDuplicates({})
 			assert.are.same({}, result)
+		end)
+
+		it("should remove duplicate tables with equal content", function()
+			local result = utils.removeDuplicates({
+				{ id = 1, name = "a" },
+				{ id = 2, name = "b" },
+				{ id = 1, name = "a" },
+				{ id = 3, name = "c" },
+				{ id = 2, name = "b" },
+			})
+
+			assert.are.equal(3, #result)
+			assert.are.same({ id = 1, name = "a" }, result[1])
+			assert.are.same({ id = 2, name = "b" }, result[2])
+			assert.are.same({ id = 3, name = "c" }, result[3])
+		end)
+
+		it("should treat tables with different key order as duplicates", function()
+			local result = utils.removeDuplicates({
+				{ a = 1, b = 2 },
+				{ b = 2, a = 1 },
+			})
+
+			assert.are.equal(1, #result)
+			assert.are.same({ a = 1, b = 2 }, result[1])
+		end)
+
+		it("should keep distinct nested tables", function()
+			local result = utils.removeDuplicates({
+				{ nested = { x = 1 } },
+				{ nested = { x = 2 } },
+				{ nested = { x = 1 } },
+			})
+
+			assert.are.equal(2, #result)
 		end)
 	end)
 
