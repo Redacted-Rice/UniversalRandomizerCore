@@ -531,6 +531,24 @@ describe("Utils Module", function()
 			local tbl = { x = 1 }
 			assert.is_true(utils.deepEqual(tbl, tbl))
 		end)
+
+		it("should handle circular table references", function()
+			local left = { name = "loop" }
+			left.self = left
+			local right = { name = "loop" }
+			right.self = right
+
+			assert.is_true(utils.deepEqual(left, right))
+		end)
+
+		it("should return false for circular tables with different content", function()
+			local left = { name = "a" }
+			left.self = left
+			local right = { name = "b" }
+			right.self = right
+
+			assert.is_false(utils.deepEqual(left, right))
+		end)
 	end)
 
 	describe("Remove Duplicates", function()
@@ -578,37 +596,32 @@ describe("Utils Module", function()
 
 			assert.are.equal(2, #result)
 		end)
-	end)
 
-	describe("Serialization", function()
-		it("should serialize tables for comparison", function()
-			local tbl1 = { a = 1, b = 2 }
-			local tbl2 = { b = 2, a = 1 } -- Same content, different order
+		it("should dedupe primitives without deep comparing every prior value", function()
+			local result = utils.removeDuplicates({
+				"a",
+				"b",
+				"a",
+				1,
+				2,
+				1,
+				true,
+				true,
+			})
 
-			local ser1 = utils.serializeForComparison(tbl1)
-			local ser2 = utils.serializeForComparison(tbl2)
-
-			-- Should be equal because serialization sorts keys
-			assert.are.equal(ser1, ser2)
+			assert.are.same({ "a", "b", 1, 2, true }, result)
 		end)
 
-		it("should serialize non-table values", function()
-			assert.are.equal("42", utils.serializeForComparison(42))
-			assert.are.equal("hello", utils.serializeForComparison("hello"))
-		end)
+		it("should remove duplicate circular tables with equal content", function()
+			local first = { tag = "shared" }
+			first.self = first
+			local second = { tag = "shared" }
+			second.self = second
 
-		it("should serialize nested tables", function()
-			local tbl = {
-				a = 1,
-				b = {
-					c = 2,
-					d = 3,
-				},
-			}
+			local result = utils.removeDuplicates({ first, second })
 
-			local serialized = utils.serializeForComparison(tbl)
-			assert.is_string(serialized)
-			assert.is_true(#serialized > 0)
+			assert.are.equal(1, #result)
+			assert.is_true(utils.deepEqual(result[1], first))
 		end)
 	end)
 

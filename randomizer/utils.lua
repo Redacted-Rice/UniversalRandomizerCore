@@ -48,10 +48,11 @@ end
 
 --- deep compare two values
 -- tables are compared recursively. userdata uses tostring
+-- circular table references are handled without recursing forever
 -- @param a first value
 -- @param b second value
 -- @return true if values are equal
-function utils.deepEqual(a, b)
+local function deepEqualImpl(a, b, visited)
 	if a == b then
 		return true
 	end
@@ -69,8 +70,19 @@ function utils.deepEqual(a, b)
 		return false
 	end
 
+	local seenForA = visited[a]
+	if seenForA and seenForA[b] then
+		return true
+	end
+
+	if not seenForA then
+		seenForA = {}
+		visited[a] = seenForA
+	end
+	seenForA[b] = true
+
 	for key, value in pairs(a) do
-		if not utils.deepEqual(value, b[key]) then
+		if not deepEqualImpl(value, b[key], visited) then
 			return false
 		end
 	end
@@ -84,58 +96,43 @@ function utils.deepEqual(a, b)
 	return true
 end
 
+function utils.deepEqual(a, b)
+	return deepEqualImpl(a, b, {})
+end
+
 --- remove duplicate values from an array like table
--- note cannot not handle tables with circular references
+-- table values are compared with deepEqual
 -- @param tbl table to remove duplicates from
 -- @return new table with duplicates removed preserving order
 function utils.removeDuplicates(tbl)
 	assert(type(tbl) == "table", "Expected table, got " .. type(tbl))
 
+	local seen = {}
 	local result = {}
 
 	for _, value in ipairs(tbl) do
-		local isDuplicate = false
-		for _, existing in ipairs(result) do
-			if utils.deepEqual(value, existing) then
-				isDuplicate = true
-				break
+		if type(value) == "table" then
+			local isDuplicate = false
+			for _, existing in ipairs(result) do
+				if type(existing) == "table" and utils.deepEqual(value, existing) then
+					isDuplicate = true
+					break
+				end
 			end
-		end
 
-		if not isDuplicate then
-			table.insert(result, value)
+			if not isDuplicate then
+				table.insert(result, value)
+			end
+		else
+			local key = utils.asTableKey(value)
+			if not seen[key] then
+				seen[key] = true
+				table.insert(result, value)
+			end
 		end
 	end
 
 	return result
-end
-
---- quick serialization for duplicate checking
--- not a real serializer just good enough for comparison
--- @local
--- @param tbl table to serialize
--- @return string representation
-function utils.serializeForComparison(tbl)
-	if type(tbl) ~= "table" then
-		return tostring(tbl)
-	end
-
-	local parts = {}
-	-- sort keys for consistent comparison
-	local keys = {}
-	for k in pairs(tbl) do
-		table.insert(keys, k)
-	end
-	table.sort(keys, function(a, b)
-		return tostring(a) < tostring(b)
-	end)
-
-	for _, k in ipairs(keys) do
-		local v = tbl[k]
-		table.insert(parts, tostring(k) .. "=" .. utils.serializeForComparison(v))
-	end
-
-	return "{" .. table.concat(parts, ",") .. "}"
 end
 
 --- check if object is a list instance
