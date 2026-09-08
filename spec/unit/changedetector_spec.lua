@@ -1084,6 +1084,55 @@ describe("ChangeDetector Module", function()
 			assert.is_false(changedetector.hasChanges(changes))
 		end)
 
+		it("should detect in -place table mutations", function()
+			local sharedTable = { x = 1, y = 2 }
+			local objects = {
+				{ data = sharedTable },
+			}
+
+			changedetector.configure(true)
+			monitorFields("test", objects, { "data" })
+			changedetector.takeSnapshots()
+
+			sharedTable.x = 99
+
+			local changes = changedetector.detectChanges()
+			assert.is_true(changedetector.hasChanges(changes))
+		end)
+
+		it("should detect nested in place table mutations", function()
+			local sharedTable = { nested = { a = 1, b = 2 } }
+			local objects = {
+				{ data = sharedTable },
+			}
+
+			changedetector.configure(true)
+			monitorFields("test", objects, { "data" })
+			changedetector.takeSnapshots()
+
+			sharedTable.nested.b = 5
+
+			local changes = changedetector.detectChanges()
+			assert.is_true(changedetector.hasChanges(changes))
+		end)
+
+		it("should snapshot circular table fields without error", function()
+			local sharedTable = { name = "loop" }
+			sharedTable.self = sharedTable
+			local objects = {
+				{ data = sharedTable },
+			}
+
+			changedetector.configure(true)
+			monitorFields("test", objects, { "data" })
+			changedetector.takeSnapshots()
+
+			sharedTable.name = "changed"
+
+			local changes = changedetector.detectChanges()
+			assert.is_true(changedetector.hasChanges(changes))
+		end)
+
 		it("should detect nested table content changes", function()
 			local objects = {
 				{ data = { nested = { a = 1, b = 2 } } },

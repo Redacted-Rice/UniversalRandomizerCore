@@ -20,18 +20,24 @@ function utils.shuffle(tbl)
 end
 
 --- deep copy a table
--- handles nested tables and preserves metatables
+-- handles nested tables, circular references, and preserves metatables
 -- @param tbl table to copy
 -- @return deep copy
-function utils.deepCopy(tbl)
+local function deepCopyImpl(tbl, visited)
 	if type(tbl) ~= "table" then
 		return tbl
 	end
 
+	if visited[tbl] then
+		return visited[tbl]
+	end
+
 	local copy = {}
+	visited[tbl] = copy
+
 	for key, value in pairs(tbl) do
 		if type(value) == "table" then
-			copy[key] = utils.deepCopy(value)
+			copy[key] = deepCopyImpl(value, visited)
 		else
 			copy[key] = value
 		end
@@ -44,6 +50,10 @@ function utils.deepCopy(tbl)
 	end
 
 	return copy
+end
+
+function utils.deepCopy(tbl)
+	return deepCopyImpl(tbl, {})
 end
 
 --- deep compare two values

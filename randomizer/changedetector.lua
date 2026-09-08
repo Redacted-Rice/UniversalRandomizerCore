@@ -448,6 +448,18 @@ function changedetector.stopMonitoringAll()
 	displaySettingsStack = {}
 end
 
+--- Deep copy captured field values for snapshot storage
+-- snapshots need their own copies so later in place table edits still show up as changes
+-- @param state table captured field state
+-- @return table frozen snapshot state
+function changedetector._freezeSnapshotState(state)
+	local frozen = {}
+	for key, value in pairs(state) do
+		frozen[key] = utils.deepCopy(value)
+	end
+	return frozen
+end
+
 --- Take a new snapshot of all configured monitoring entries
 function changedetector.takeSnapshots()
 	if not changedetector.isActive() then
@@ -464,7 +476,9 @@ function changedetector.takeSnapshots()
 				primary = rowData.primary,
 				primarySort = rowData.primarySort,
 				description = rowData.description,
-				state = tablelayout._captureFieldState(rowData.object, entry.baseFields),
+				state = changedetector._freezeSnapshotState(
+					tablelayout._captureFieldState(rowData.object, entry.baseFields)
+				),
 			})
 		end
 

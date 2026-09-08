@@ -483,6 +483,18 @@ describe("Utils Module", function()
 			assert.are.equal(mt, getmetatable(copy))
 			assert.are.equal("test", tostring(copy))
 		end)
+
+		it("should deepCopy circular table references", function()
+			local original = { name = "loop" }
+			original.self = original
+
+			local copy = utils.deepCopy(original)
+
+			assert.are_not.equal(original, copy)
+			assert.are.equal("loop", copy.name)
+			assert.are.equal(copy, copy.self)
+			assert.are_not.equal(original, copy.self)
+		end)
 	end)
 
 	describe("deepEqual", function()

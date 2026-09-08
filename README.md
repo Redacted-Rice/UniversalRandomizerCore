@@ -6,6 +6,7 @@ Lua based randomization functions to support randomizing arbitrary lists of obje
 
 - Chainable API: Fluent interface for composing operations
 - List/Group Management: Filter, sort, shuffle, remove duplicates, and select on Lists; Groups use `applyToEachList` / `prune` for per-key List ops
+- Change Detection: Snapshot object fields and report what changed after randomization
 - Pools and Grouped Pools: Define pools to pull values from including having multiple pools to select from based on conditions
 - Hybrid API: Works with both wrapper objects and plain tables
 - Type-Safe: Built-in validation and helpful error messages
@@ -164,6 +165,8 @@ Example: a Group might have `melee = {"Sword", "Axe"}` and `ranged = {"Bow", "Cr
 
 **`filter`** - Keep only items that match a condition. For example, `filter(function(x) return x.health > 5 end)` keeps only items with health greater than 5.
 
+**`removeDuplicates`** - Drop duplicate values while keeping the first occurrence. Primitives compare directly. Tables compare by content, not reference.
+
 **`shuffle`** - randomly reorder the items in the list. Like shuffling a deck of cards.
 
 ### Group Helpers
@@ -183,6 +186,10 @@ local filtered = itemPools
 **`map`** - map each key/list pair to a value and collect the results into a List (skips nil).
 
 **`toList`** - concatenate every keyed list into one List.
+
+### Change Detection
+
+`randomizer.changedetector` tracks field values on objects you register. Call `takeSnapshots()` before randomizing and `detectChanges()` after to see what changed. Table fields are snapshotted as copies so in-place edits still show up.
 
 ### How Randomization Works
 
@@ -294,6 +301,7 @@ Current unit tests
 - `spec/unit/list_spec.lua` - List class tests
 - `spec/unit/group_spec.lua` - Group class tests
 - `spec/unit/utils_spec.lua` - Utility functions tests
+- `spec/unit/changedetector_spec.lua` - Change detector tests
 - `spec/unit/init_spec.lua` - Standalone functions tests
 
 These unit tests cover:
