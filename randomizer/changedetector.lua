@@ -448,14 +448,13 @@ function changedetector.stopMonitoringAll()
 	displaySettingsStack = {}
 end
 
---- Deep copy captured field values for snapshot storage
--- snapshots need their own copies so later in place table edits still show up as changes
+--- Store captured field values in a form safe to compare later
 -- @param state table captured field state
 -- @return table frozen snapshot state
 function changedetector._freezeSnapshotState(state)
 	local frozen = {}
 	for key, value in pairs(state) do
-		frozen[key] = utils.deepCopy(value)
+		frozen[key] = tablelayout._snapshotValue(value)
 	end
 	return frozen
 end
@@ -562,7 +561,9 @@ function changedetector.detectChanges()
 		local anyChanged = false
 
 		for _, snapshot in ipairs(entry.snapshot) do
-			local currentState = tablelayout._captureFieldState(snapshot.object, entry.baseFields)
+			local currentState = changedetector._freezeSnapshotState(
+				tablelayout._captureFieldState(snapshot.object, entry.baseFields)
+			)
 			local rowData = {
 				_primary = snapshot.primary,
 				_primarySort = snapshot.primarySort,
