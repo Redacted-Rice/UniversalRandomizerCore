@@ -777,6 +777,34 @@ describe("ChangeDetector Module", function()
 			assert.is_not_nil(changes.test)
 		end)
 
+		it("should detect in place toString object edits", function()
+			local function makeMutableText(initial)
+				local state = { text = initial }
+				return {
+					toString = function()
+						return state.text
+					end,
+					setText = function(_, value)
+						state.text = value
+					end,
+				}
+			end
+
+			local objects = {
+				{ id = 1, label = makeMutableText("before") },
+			}
+
+			changedetector.configure(true)
+			monitorFields("test", objects, { "label" })
+			changedetector.takeSnapshots()
+			objects[1].label:setText("after")
+
+			local changes = changedetector.detectChanges()
+			assert.is_true(changedetector.hasChanges(changes))
+			assert.are.equal("before", changes.test["1"].label.old)
+			assert.are.equal("after", changes.test["1"].label.new)
+		end)
+
 		it("should detect changes in multiple objects", function()
 			local objects = {
 				{ id = 1, value = 10 },

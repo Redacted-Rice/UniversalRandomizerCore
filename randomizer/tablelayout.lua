@@ -1,6 +1,8 @@
 --- Shared table layout configuration for object display and change tables
 -- @module randomizer.tablelayout
 
+local utils = require("randomizer.utils")
+
 local tablelayout = {}
 
 --- Convert a captured value to a display string
@@ -19,6 +21,35 @@ function tablelayout._valueToString(value)
 	end
 
 	return tostring(value)
+end
+
+--- Capture one field value for change-detector snapshots
+-- Plain tables are deep copied. Java style objects with toString are stored as text
+-- so later in place setText style edits still compare against the old value.
+-- @param value any raw field value
+-- @return any snapshot safe value
+function tablelayout._snapshotValue(value)
+	if value == nil then
+		return nil
+	end
+
+	if type(value) == "table" then
+		if type(value.toString) == "function" then
+			local ok, result = pcall(function()
+				return value:toString()
+			end)
+			if ok and result ~= nil then
+				return tostring(result)
+			end
+		end
+		return utils.deepCopy(value)
+	end
+
+	if type(value) == "userdata" then
+		return tablelayout._valueToString(value)
+	end
+
+	return value
 end
 
 --- Read a value from an object using a normalized key or field spec
