@@ -5,12 +5,32 @@ local utils = require("randomizer.utils")
 
 local tablelayout = {}
 
+--- Format an array like table or list items for display
+-- @local
+-- @param items array like table of values
+-- @return string
+function tablelayout._formatSequence(items)
+	local parts = {}
+	for _, item in ipairs(items) do
+		table.insert(parts, tablelayout._valueToString(item))
+	end
+	return "[" .. table.concat(parts, ", ") .. "]"
+end
+
 --- Convert a captured value to a display string
 -- @param value any captured field or key value
 -- @return string
 function tablelayout._valueToString(value)
 	if value == nil then
 		return ""
+	end
+
+	if utils.isList(value) then
+		return tablelayout._formatSequence(value.items)
+	end
+
+	if type(value) == "table" and utils.isArrayLike(value) then
+		return tablelayout._formatSequence(value)
 	end
 
 	if type(value) == "userdata" and value.toString then

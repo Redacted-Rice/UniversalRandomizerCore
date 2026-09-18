@@ -1204,6 +1204,28 @@ describe("ChangeDetector Module", function()
 			assert.are.equal("", changedetector.formatChangesTable({}))
 		end)
 
+		it("should format array like field values instead of table refs", function()
+			changedetector.configure(true)
+			local objects = {
+				{ name = "Bulbasaur", branchIds = nil },
+			}
+
+			changedetector.monitor("Monster Cards", objects, {
+				title = "Monster Cards",
+				primaryKey = { field = "name", header = "Name" },
+				fields = {
+					{ field = "branchIds", header = "Branch Ids", align = "right" },
+				},
+			})
+			changedetector.takeSnapshots()
+			objects[1].branchIds = { 1, 2 }
+
+			local tableOutput = changedetector.formatChangesTable(changedetector.detectChanges())
+
+			assert.matches("%[1, 2%]", tableOutput)
+			assert.is_nil(tableOutput:find("table:", 1, true))
+		end)
+
 		it("should format one row per object with field from/to columns from setup", function()
 			changedetector.configure(true)
 			local objects = {
