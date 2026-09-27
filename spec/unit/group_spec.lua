@@ -270,6 +270,60 @@ describe("Group Module", function()
 				group:add("b", "not a table")
 			end)
 		end)
+
+		it("should remove matching values from every list", function()
+			local group = randomizer.group({
+				a = { 1, 2, 3, 2 },
+				b = { 2, 4, 2 },
+				c = { 5 },
+			})
+
+			group:removeAllValueMatches(2)
+			assert.are.same({ 1, 3 }, group:get("a"):toTable())
+			assert.are.same({ 4 }, group:get("b"):toTable())
+			assert.are.same({ 5 }, group:get("c"):toTable())
+		end)
+
+		it("should remove matching values with a custom matcher", function()
+			local group = randomizer.group({
+				a = { { type = "fire" }, { type = "water" } },
+				b = { { type = "fire" } },
+			})
+
+			group:removeAllValueMatches("fire", function(item, value)
+				return item.type == value
+			end)
+			assert.are.equal(1, group:get("a"):size())
+			assert.are.equal("water", group:get("a"):get(1).type)
+			assert.are.equal(0, group:get("b"):size())
+		end)
+
+		it("should remove all matching keys", function()
+			local group = randomizer.group({
+				fire = { 1 },
+				water = { 2 },
+				fire_extra = { 3 },
+			})
+
+			group:removeAllKeyMatches("fire", function(existingKey, key)
+				return string.find(existingKey, key, 1, true) ~= nil
+			end)
+			assert.are.equal(1, group:groupCount())
+			assert.are.same({ 2 }, group:get("water"):toTable())
+			assert.is_nil(group:get("fire"))
+			assert.is_nil(group:get("fire_extra"))
+		end)
+
+		it("should remove a single key with default matcher", function()
+			local group = randomizer.group({
+				a = { 1 },
+				b = { 2 },
+			})
+			group:removeAllKeyMatches("a")
+			assert.are.equal(1, group:groupCount())
+			assert.is_nil(group:get("a"))
+			assert.are.same({ 2 }, group:get("b"):toTable())
+		end)
 	end)
 
 	describe("Get and Keys", function()

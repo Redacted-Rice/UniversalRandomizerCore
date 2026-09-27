@@ -238,6 +238,73 @@ describe("List Module", function()
 		end)
 	end)
 
+	describe("Remove", function()
+		it("should remove the first matching value", function()
+			local list = randomizer.list({ 1, 2, 3, 2, 4 })
+			local removed = list:removeFirstMatch(2)
+
+			assert.are.equal(2, removed)
+			assert.are.same({ 1, 3, 2, 4 }, list:toTable())
+		end)
+
+		it("should return nil when no match is found", function()
+			local list = randomizer.list({ 1, 2, 3 })
+			assert.is_nil(list:removeFirstMatch(9))
+			assert.are.same({ 1, 2, 3 }, list:toTable())
+		end)
+
+		it("should remove using a custom matcher", function()
+			local list = randomizer.list({
+				{ id = 1, name = "a" },
+				{ id = 2, name = "b" },
+				{ id = 3, name = "c" },
+			})
+			local removed = list:removeFirstMatch({ id = 2 }, function(item, value)
+				return item.id == value.id
+			end)
+
+			assert.are.equal(2, removed.id)
+			assert.are.equal(2, list:size())
+			assert.are.equal("a", list:get(1).name)
+			assert.are.equal("c", list:get(2).name)
+		end)
+
+		it("should remove at a specific index", function()
+			local list = randomizer.list({ "a", "b", "c" })
+			assert.are.equal("b", list:removeAt(2))
+			assert.are.same({ "a", "c" }, list:toTable())
+		end)
+
+		it("should error for an out of bounds removeAt index", function()
+			local list = randomizer.list({ 1, 2 })
+			assert.has_error(function()
+				list:removeAt(0)
+			end)
+			assert.has_error(function()
+				list:removeAt(3)
+			end)
+		end)
+
+		it("should remove all matching values", function()
+			local list = randomizer.list({ 1, 2, 3, 2, 4, 2 })
+			list:removeAllMatches(2)
+			assert.are.same({ 1, 3, 4 }, list:toTable())
+		end)
+
+		it("should remove all matches with a custom matcher", function()
+			local list = randomizer.list({
+				{ type = "fire" },
+				{ type = "water" },
+				{ type = "fire" },
+			})
+			list:removeAllMatches("fire", function(item, value)
+				return item.type == value
+			end)
+			assert.are.equal(1, list:size())
+			assert.are.equal("water", list:get(1).type)
+		end)
+	end)
+
 	describe("Sort", function()
 		it("should sort a list", function()
 			local list = randomizer.list({ 5, 2, 8, 1, 9 })
