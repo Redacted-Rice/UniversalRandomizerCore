@@ -247,6 +247,24 @@ function Group:add(key, list)
 	return self
 end
 
+--- append an item to the list for the given key
+-- creates an empty list for the key if it does not exist yet
+-- mutates this group in place
+-- @param key key whose list should receive the item
+-- @param item item to append
+-- @return self to support chaining
+function Group:push(key, item)
+	assert(key ~= nil, "Key cannot be nil")
+	local list = self.lists[key]
+	if list == nil then
+		list = List.new({})
+		self.lists[key] = list
+		table.insert(self.keyOrder, key)
+	end
+	list:push(item)
+	return self
+end
+
 --- remove the key and associated list from the group
 -- @param key key to remove
 -- @return self to support chaining

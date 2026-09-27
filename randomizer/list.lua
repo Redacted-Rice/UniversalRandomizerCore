@@ -238,6 +238,15 @@ function List:removeAt(index)
 	return table.remove(self.items, index)
 end
 
+--- append an item to the end of this list
+-- mutates this list in place
+-- @param item item to append
+-- @return self to support chaining
+function List:push(item)
+	table.insert(self.items, item)
+	return self
+end
+
 --- remove every item that matches value
 -- mutates this list in place
 -- @param value value to match against
