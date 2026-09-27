@@ -110,6 +110,19 @@ function utils.deepEqual(a, b)
 	return deepEqualImpl(a, b, {})
 end
 
+--- resolve an optional matcher for remove/match helpers
+-- @param matcherFn optional function(actual, expected) returning true when they match
+-- @return matcherFn, or a default matcher that uses ==
+function utils.resolveMatcher(matcherFn)
+	if matcherFn == nil then
+		return function(actual, expected)
+			return actual == expected
+		end
+	end
+	assert(type(matcherFn) == "function", "Expected function for matcherFn, got " .. type(matcherFn))
+	return matcherFn
+end
+
 --- remove duplicate values from an array like table
 -- table values are compared with deepEqual
 -- @param tbl table to remove duplicates from

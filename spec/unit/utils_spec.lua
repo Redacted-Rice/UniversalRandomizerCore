@@ -563,6 +563,28 @@ describe("Utils Module", function()
 		end)
 	end)
 
+	describe("resolveMatcher", function()
+		it("should default to equality comparison", function()
+			local matches = utils.resolveMatcher()
+			assert.is_true(matches(1, 1))
+			assert.is_false(matches(1, 2))
+		end)
+
+		it("should return the provided matcher function", function()
+			local custom = function(a, b)
+				return a.id == b.id
+			end
+			assert.are.equal(custom, utils.resolveMatcher(custom))
+			assert.is_true(utils.resolveMatcher(custom)({ id = 1 }, { id = 1 }))
+		end)
+
+		it("should error for a non function matcher", function()
+			assert.has_error(function()
+				utils.resolveMatcher("nope")
+			end)
+		end)
+	end)
+
 	describe("Remove Duplicates", function()
 		it("should remove duplicates from array", function()
 			local result = utils.removeDuplicates({ 1, 2, 2, 3, 3, 3, 4 })

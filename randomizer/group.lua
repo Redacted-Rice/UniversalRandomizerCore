@@ -253,6 +253,39 @@ function Group:remove(key)
 	return self
 end
 
+--- remove matching values from every keyed list
+-- mutates this group in place
+-- @param value value to match against in each list
+-- @param matcherFn optional function(item, value) forwarded to List:removeAllMatches.
+--   defaults to ==
+-- @return self to support chaining
+function Group:removeAllValueMatches(value, matcherFn)
+	self:each(function(_, list)
+		list:removeAllMatches(value, matcherFn)
+	end)
+	return self
+end
+
+--- remove every key that matches the given key
+-- mutates this group in place
+-- @param key key to match against
+-- @param matcherFn optional function(existingKey, key) returning true when the key matches.
+--   defaults to ==
+-- @return self to support chaining
+function Group:removeAllKeyMatches(key, matcherFn)
+	local matches = utils.resolveMatcher(matcherFn)
+	local toRemove = {}
+	for _, existingKey in ipairs(self.keyOrder) do
+		if matches(existingKey, key) then
+			table.insert(toRemove, existingKey)
+		end
+	end
+	for _, existingKey in ipairs(toRemove) do
+		self:remove(existingKey)
+	end
+	return self
+end
+
 --- randomize the items in the torandomize list using this grouped pool
 -- to randomize a target list using selector function to pick which pool to use per item
 -- this is modified in place

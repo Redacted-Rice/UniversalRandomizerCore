@@ -211,6 +211,46 @@ function List:removeDuplicates()
 	return List.new(unique)
 end
 
+--- remove the first item that matches value
+-- mutates this list in place
+-- @param value value to remove
+-- @param matcherFn optional function(item, value) returning true when the item matches.
+--   defaults to ==
+-- @return the removed item, or nil if no match was found
+function List:removeFirstMatch(value, matcherFn)
+	local matches = utils.resolveMatcher(matcherFn)
+	for i, item in ipairs(self.items) do
+		if matches(item, value) then
+			return self:removeAt(i)
+		end
+	end
+	return nil
+end
+
+--- remove the item at the given 1 based index
+-- mutates this list in place
+-- @param index 1 based index to remove
+-- @return the removed item
+function List:removeAt(index)
+	assert(type(index) == "number", "Expected number for index, got " .. type(index))
+	assert(index >= 1 and index <= #self.items, "Index out of bounds: " .. tostring(index))
+	return table.remove(self.items, index)
+end
+
+--- remove every item that matches value
+-- mutates this list in place
+-- @param value value to match against
+-- @param matcherFn optional function(item, value) returning true when the item matches.
+--   defaults to ==
+-- @return self to support chaining
+function List:removeAllMatches(value, matcherFn)
+	local matches = utils.resolveMatcher(matcherFn)
+	self.items = self:filter(function(item)
+		return not matches(item, value)
+	end).items
+	return self
+end
+
 --- shuffle items randomly
 -- the original is not modified
 -- @return new list with shuffled items

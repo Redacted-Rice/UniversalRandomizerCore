@@ -53,7 +53,7 @@ local function makeStub()
 	return stub
 end
 
--- Prefer host-injected global (URJ). Do not use rawget — removed in the URJ sandbox.
+-- Prefer host-injected global (URJ). Do not use rawget - removed in the URJ sandbox.
 local hostLogger = _G.logger
 if isUsableLogger(hostLogger) then
 	return hostLogger
