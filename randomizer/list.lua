@@ -9,17 +9,18 @@ local utils = require("randomizer.utils")
 local List = {}
 List.__index = List
 
---- wraps a native table in a randomizer list
+--- wraps a native table or copies an existing list
 -- constructor
 -- the original is not modified
--- @param list table or list of items
--- @return new list object containing the items
+-- @param list table or List of items
+-- @return new list object containing a deep copy of the items
 function List.new(list)
-	assert(type(list) == "table", "Expected table, got " .. type(list))
+	assert(type(list) == "table", "Expected table or List, got " .. type(list))
 
+	local items = utils.isList(list) and list.items or list
 	local self = setmetatable({}, List)
 	self._type = "List" -- for type checking
-	self.items = utils.deepCopy(list) -- deep copy to avoid side effects
+	self.items = utils.deepCopy(items) -- deep copy to avoid side effects
 
 	return self
 end

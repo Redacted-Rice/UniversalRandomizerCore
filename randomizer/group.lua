@@ -26,14 +26,24 @@ local function toListObject(list, key)
 	end
 end
 
---- wraps native tables in randomizer group of lists
+--- wraps native tables in randomizer group of lists, or copies an existing group
 -- constructor
 -- preferred to use this when you have multiple pools
--- @param listsMap table of lists or tables
--- @param keyOrder optional array defining iteration order for keys
+-- @param listsMap table of lists or tables, or an existing Group to copy
+-- @param keyOrder optional array defining iteration order for keys.
+--   ignored when copying an existing Group
 -- @return group object
 function Group.new(listsMap, keyOrder)
-	assert(type(listsMap) == "table", "Expected table, got " .. type(listsMap))
+	assert(type(listsMap) == "table", "Expected table or Group, got " .. type(listsMap))
+
+	-- copying a group always deep copies each keyed list
+	if utils.isGroup(listsMap) then
+		local copied = {}
+		for _, key in ipairs(listsMap.keyOrder) do
+			copied[key] = List.new(listsMap.lists[key])
+		end
+		return Group.new(copied, utils.deepCopy(listsMap.keyOrder))
+	end
 
 	local self = setmetatable({}, Group)
 	self._type = "Group"

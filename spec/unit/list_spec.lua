@@ -35,6 +35,17 @@ describe("List Module", function()
 			local str = tostring(list)
 			assert.are.equal("List(3 items)", str)
 		end)
+
+		it("should copy an existing list", function()
+			local original = randomizer.list({ 1, 2, 3 })
+			local copy = randomizer.list(original)
+
+			assert.are.same({ 1, 2, 3 }, copy:toTable())
+			assert.are_not.equal(original, copy)
+			copy:removeAt(1)
+			assert.are.same({ 1, 2, 3 }, original:toTable())
+			assert.are.same({ 2, 3 }, copy:toTable())
+		end)
 	end)
 
 	describe("Each", function()

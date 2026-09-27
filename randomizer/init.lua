@@ -27,11 +27,11 @@ randomizer.isList = utils.isList
 -- @function isGroup
 randomizer.isGroup = utils.isGroup
 
---- create a new list from a table
+--- create a new list from a table, or a deep copy of an existing List
 -- @function list
 randomizer.list = List.new
 
---- create a new group from a table of lists
+--- create a new group from a table of lists, or a deep copy of an existing Group
 -- @function group
 randomizer.group = Group.new
 
