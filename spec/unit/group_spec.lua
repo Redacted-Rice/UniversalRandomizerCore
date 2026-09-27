@@ -50,6 +50,27 @@ describe("Group Module", function()
 				})
 			end)
 		end)
+
+		it("should copy an existing group", function()
+			local original = randomizer.group({
+				a = { 1, 2 },
+				b = { 3 },
+			})
+			local copy = randomizer.group(original)
+
+			assert.are.equal(2, copy:groupCount())
+			assert.are.same({ 1, 2 }, copy:get("a"):toTable())
+			assert.are.same({ 3 }, copy:get("b"):toTable())
+			assert.are_not.equal(original, copy)
+			assert.are_not.equal(original:get("a"), copy:get("a"))
+
+			copy:get("a"):removeAt(1)
+			copy:remove("b")
+			assert.are.same({ 1, 2 }, original:get("a"):toTable())
+			assert.are.equal(2, original:groupCount())
+			assert.are.same({ 2 }, copy:get("a"):toTable())
+			assert.are.equal(1, copy:groupCount())
+		end)
 	end)
 
 	describe("Prune", function()
