@@ -33,9 +33,11 @@ function tablelayout._valueToString(value)
 		return tablelayout._formatSequence(value)
 	end
 
-	if type(value) == "userdata" and value.toString then
-		local result = value:toString()
-		if result ~= nil then
+	if type(value) == "userdata" and type(value.toString) == "function" then
+		local ok, result = pcall(function()
+			return value:toString()
+		end)
+		if ok and result ~= nil then
 			return tostring(result)
 		end
 	end
