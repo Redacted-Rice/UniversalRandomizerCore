@@ -805,6 +805,31 @@ describe("ChangeDetector Module", function()
 			assert.are.equal("after", changes.test["1"].label.new)
 		end)
 
+		it("should not report a change when toString object text is unchanged", function()
+			local function makeMutableText(initial)
+				local state = { text = initial }
+				return {
+					toString = function()
+						return state.text
+					end,
+					setText = function(_, value)
+						state.text = value
+					end,
+				}
+			end
+
+			local objects = {
+				{ id = 1, label = makeMutableText("same") },
+			}
+
+			changedetector.configure(true)
+			monitorFields("test", objects, { "label" })
+			changedetector.takeSnapshots()
+
+			local changes = changedetector.detectChanges()
+			assert.is_false(changedetector.hasChanges(changes))
+		end)
+
 		it("should detect changes in multiple objects", function()
 			local objects = {
 				{ id = 1, value = 10 },
