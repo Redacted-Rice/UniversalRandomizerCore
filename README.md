@@ -140,7 +140,7 @@ This is a high level explanation of the main ideas in this library. For full API
 A **List** is a wrapper around array-like Lua tables. They are primarily used to allow further refinement or downselecting of the list and are used to hold the items being randomized as well as basic pools to select values from for randomization.
 
 **Key behaviors:**
-- Lists are read-only - operations like `filter()` or `shuffle()` create new Lists, they don't change the original
+- Lists are read-only - operations like `filter()`, `shuffle()`, `push()`, `removeAllMatches()`, and similar helpers return new Lists without changing the original
 - You can chain operations together (e.g., `list:filter(...):sort(...):shuffle(...)`)
 - Lists can be used as **pools** for randomization - when you randomize items, values are picked from teh pool
 
@@ -165,6 +165,10 @@ Example: a Group might have `melee = {"Sword", "Axe"}` and `ranged = {"Bow", "Cr
 
 **`filter`** - Keep only items that match a condition. For example, `filter(function(x) return x.health > 5 end)` keeps only items with health greater than 5.
 
+**`push`** - Append an item, returning a new List.
+
+**`removeAt`** / **`removeFirstMatch`** / **`removeAllMatches`** - Return a new List with the matching item(s) removed. `removeAt` and `removeFirstMatch` also return the removed item as a second value. Default matching uses `==` for scalars and `deepEqual` for tables.
+
 **`removeDuplicates`** - Drop duplicate values while keeping the first occurrence. Primitives compare directly. Tables compare by content, not reference.
 
 **`shuffle`** - randomly reorder the items in the list. Like shuffling a deck of cards.
@@ -178,6 +182,10 @@ local filtered = itemPools
     :applyToEachList("filter", function(item) return #item > 5 end)
     :prune()  -- drop keys whose lists became empty
 ```
+
+**`push`** - Append an item under a key (creates the key if needed), returning a new Group.
+
+**`removeAllValueMatches`** / **`removeAllKeyMatches`** - Return a new Group with matching values or keys removed. Same default matcher rules as List remove helpers.
 
 **`prune`** - remove keys that currently have empty lists.
 

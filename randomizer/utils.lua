@@ -112,10 +112,13 @@ end
 
 --- resolve an optional matcher for remove/match helpers
 -- @param matcherFn optional function(actual, expected) returning true when they match
--- @return matcherFn, or a default matcher that uses ==
+-- @return matcherFn, or a default matcher that uses == for scalars and deepEqual for tables
 function utils.resolveMatcher(matcherFn)
 	if matcherFn == nil then
 		return function(actual, expected)
+			if type(actual) == "table" and type(expected) == "table" then
+				return utils.deepEqual(actual, expected)
+			end
 			return actual == expected
 		end
 	end
