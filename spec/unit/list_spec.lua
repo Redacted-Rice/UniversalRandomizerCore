@@ -42,7 +42,7 @@ describe("List Module", function()
 
 			assert.are.same({ 1, 2, 3 }, copy:toTable())
 			assert.are_not.equal(original, copy)
-			copy:removeAt(1)
+			copy = copy:removeAt(1)
 			assert.are.same({ 1, 2, 3 }, original:toTable())
 			assert.are.same({ 2, 3 }, copy:toTable())
 		end)
@@ -252,15 +252,18 @@ describe("List Module", function()
 	describe("Remove", function()
 		it("should remove the first matching value", function()
 			local list = randomizer.list({ 1, 2, 3, 2, 4 })
-			local removed = list:removeFirstMatch(2)
+			local result, removed = list:removeFirstMatch(2)
 
 			assert.are.equal(2, removed)
-			assert.are.same({ 1, 3, 2, 4 }, list:toTable())
+			assert.are.same({ 1, 3, 2, 4 }, result:toTable())
+			assert.are.same({ 1, 2, 3, 2, 4 }, list:toTable())
 		end)
 
 		it("should return nil when no match is found", function()
 			local list = randomizer.list({ 1, 2, 3 })
-			assert.is_nil(list:removeFirstMatch(9))
+			local result, removed = list:removeFirstMatch(9)
+			assert.is_nil(removed)
+			assert.are.same({ 1, 2, 3 }, result:toTable())
 			assert.are.same({ 1, 2, 3 }, list:toTable())
 		end)
 
@@ -270,20 +273,23 @@ describe("List Module", function()
 				{ id = 2, name = "b" },
 				{ id = 3, name = "c" },
 			})
-			local removed = list:removeFirstMatch({ id = 2 }, function(item, value)
+			local result, removed = list:removeFirstMatch({ id = 2 }, function(item, value)
 				return item.id == value.id
 			end)
 
 			assert.are.equal(2, removed.id)
-			assert.are.equal(2, list:size())
-			assert.are.equal("a", list:get(1).name)
-			assert.are.equal("c", list:get(2).name)
+			assert.are.equal(2, result:size())
+			assert.are.equal("a", result:get(1).name)
+			assert.are.equal("c", result:get(2).name)
+			assert.are.equal(3, list:size())
 		end)
 
 		it("should remove at a specific index", function()
 			local list = randomizer.list({ "a", "b", "c" })
-			assert.are.equal("b", list:removeAt(2))
-			assert.are.same({ "a", "c" }, list:toTable())
+			local result, removed = list:removeAt(2)
+			assert.are.equal("b", removed)
+			assert.are.same({ "a", "c" }, result:toTable())
+			assert.are.same({ "a", "b", "c" }, list:toTable())
 		end)
 
 		it("should error for an out of bounds removeAt index", function()
@@ -298,8 +304,9 @@ describe("List Module", function()
 
 		it("should remove all matching values", function()
 			local list = randomizer.list({ 1, 2, 3, 2, 4, 2 })
-			list:removeAllMatches(2)
-			assert.are.same({ 1, 3, 4 }, list:toTable())
+			local result = list:removeAllMatches(2)
+			assert.are.same({ 1, 3, 4 }, result:toTable())
+			assert.are.same({ 1, 2, 3, 2, 4, 2 }, list:toTable())
 		end)
 
 		it("should remove all matches with a custom matcher", function()
@@ -308,11 +315,57 @@ describe("List Module", function()
 				{ type = "water" },
 				{ type = "fire" },
 			})
-			list:removeAllMatches("fire", function(item, value)
+			local result = list:removeAllMatches("fire", function(item, value)
 				return item.type == value
 			end)
-			assert.are.equal(1, list:size())
-			assert.are.equal("water", list:get(1).type)
+			assert.are.equal(1, result:size())
+			assert.are.equal("water", result:get(1).type)
+			assert.are.equal(3, list:size())
+		end)
+
+		it("should leave original item refs unchanged after removeAllMatches", function()
+			local list = randomizer.list({ { id = 1 }, { id = 2 }, { id = 1 } })
+			local first = list:get(1)
+			local second = list:get(2)
+			local third = list:get(3)
+
+			local result = list:removeAllMatches({ id = 2 })
+
+			assert.are.equal(first, list:get(1))
+			assert.are.equal(second, list:get(2))
+			assert.are.equal(third, list:get(3))
+			assert.are.equal(3, list:size())
+			assert.are.equal(2, result:size())
+			assert.are_not.equal(list, result)
+		end)
+
+		it("should match tables by content with the default matcher", function()
+			local list = randomizer.list({
+				{ id = 1 },
+				{ id = 2 },
+				{ id = 1 },
+			})
+			local result = list:removeAllMatches({ id = 1 })
+			assert.are.equal(1, result:size())
+			assert.are.equal(2, result:get(1).id)
+		end)
+	end)
+
+	describe("Push", function()
+		it("should append an item and leave the original unchanged", function()
+			local list = randomizer.list({ 1, 2 })
+			local result = list:push(3)
+
+			assert.are.same({ 1, 2, 3 }, result:toTable())
+			assert.are.same({ 1, 2 }, list:toTable())
+			assert.are_not.equal(list, result)
+		end)
+
+		it("should support chaining", function()
+			local list = randomizer.list({ 1 })
+			local result = list:push(2):push(3)
+			assert.are.same({ 1, 2, 3 }, result:toTable())
+			assert.are.same({ 1 }, list:toTable())
 		end)
 	end)
 

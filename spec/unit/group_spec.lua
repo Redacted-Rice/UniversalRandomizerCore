@@ -64,7 +64,7 @@ describe("Group Module", function()
 			assert.are_not.equal(original, copy)
 			assert.are_not.equal(original:get("a"), copy:get("a"))
 
-			copy:get("a"):removeAt(1)
+			copy:add("a", copy:get("a"):removeAt(1))
 			copy:remove("b")
 			assert.are.same({ 1, 2 }, original:get("a"):toTable())
 			assert.are.equal(2, original:groupCount())
@@ -299,10 +299,12 @@ describe("Group Module", function()
 				c = { 5 },
 			})
 
-			group:removeAllValueMatches(2)
-			assert.are.same({ 1, 3 }, group:get("a"):toTable())
-			assert.are.same({ 4 }, group:get("b"):toTable())
-			assert.are.same({ 5 }, group:get("c"):toTable())
+			local result = group:removeAllValueMatches(2)
+			assert.are.same({ 1, 3 }, result:get("a"):toTable())
+			assert.are.same({ 4 }, result:get("b"):toTable())
+			assert.are.same({ 5 }, result:get("c"):toTable())
+			assert.are.same({ 1, 2, 3, 2 }, group:get("a"):toTable())
+			assert.are.same({ 2, 4, 2 }, group:get("b"):toTable())
 		end)
 
 		it("should remove matching values with a custom matcher", function()
@@ -311,12 +313,14 @@ describe("Group Module", function()
 				b = { { type = "fire" } },
 			})
 
-			group:removeAllValueMatches("fire", function(item, value)
+			local result = group:removeAllValueMatches("fire", function(item, value)
 				return item.type == value
 			end)
-			assert.are.equal(1, group:get("a"):size())
-			assert.are.equal("water", group:get("a"):get(1).type)
-			assert.are.equal(0, group:get("b"):size())
+			assert.are.equal(1, result:get("a"):size())
+			assert.are.equal("water", result:get("a"):get(1).type)
+			assert.are.equal(0, result:get("b"):size())
+			assert.are.equal(2, group:get("a"):size())
+			assert.are.equal(1, group:get("b"):size())
 		end)
 
 		it("should remove all matching keys", function()
@@ -326,13 +330,14 @@ describe("Group Module", function()
 				fire_extra = { 3 },
 			})
 
-			group:removeAllKeyMatches("fire", function(existingKey, key)
+			local result = group:removeAllKeyMatches("fire", function(existingKey, key)
 				return string.find(existingKey, key, 1, true) ~= nil
 			end)
-			assert.are.equal(1, group:groupCount())
-			assert.are.same({ 2 }, group:get("water"):toTable())
-			assert.is_nil(group:get("fire"))
-			assert.is_nil(group:get("fire_extra"))
+			assert.are.equal(1, result:groupCount())
+			assert.are.same({ 2 }, result:get("water"):toTable())
+			assert.is_nil(result:get("fire"))
+			assert.is_nil(result:get("fire_extra"))
+			assert.are.equal(3, group:groupCount())
 		end)
 
 		it("should remove a single key with default matcher", function()
@@ -340,10 +345,43 @@ describe("Group Module", function()
 				a = { 1 },
 				b = { 2 },
 			})
-			group:removeAllKeyMatches("a")
+			local result = group:removeAllKeyMatches("a")
+			assert.are.equal(1, result:groupCount())
+			assert.is_nil(result:get("a"))
+			assert.are.same({ 2 }, result:get("b"):toTable())
+			assert.are.equal(2, group:groupCount())
+		end)
+
+		it("should push an item onto an existing key", function()
+			local group = randomizer.group({
+				a = { 1 },
+			})
+			local result = group:push("a", 2)
+
+			assert.are.same({ 1, 2 }, result:get("a"):toTable())
+			assert.are.same({ 1 }, group:get("a"):toTable())
+			assert.are_not.equal(group, result)
+		end)
+
+		it("should create a key when pushing to a missing key", function()
+			local group = randomizer.group({
+				a = { 1 },
+			})
+			local result = group:push("b", 9)
+
+			assert.are.equal(2, result:groupCount())
+			assert.are.same({ 9 }, result:get("b"):toTable())
 			assert.are.equal(1, group:groupCount())
-			assert.is_nil(group:get("a"))
-			assert.are.same({ 2 }, group:get("b"):toTable())
+			assert.is_nil(group:get("b"))
+		end)
+
+		it("should support push chaining", function()
+			local group = randomizer.group({})
+			local result = group:push("a", 1):push("a", 2):push("b", 3)
+
+			assert.are.same({ 1, 2 }, result:get("a"):toTable())
+			assert.are.same({ 3 }, result:get("b"):toTable())
+			assert.are.equal(0, group:groupCount())
 		end)
 	end)
 

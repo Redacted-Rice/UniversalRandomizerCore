@@ -570,6 +570,12 @@ describe("Utils Module", function()
 			assert.is_false(matches(1, 2))
 		end)
 
+		it("should deep equal tables by default", function()
+			local matches = utils.resolveMatcher()
+			assert.is_true(matches({ id = 1 }, { id = 1 }))
+			assert.is_false(matches({ id = 1 }, { id = 2 }))
+		end)
+
 		it("should return the provided matcher function", function()
 			local custom = function(a, b)
 				return a.id == b.id

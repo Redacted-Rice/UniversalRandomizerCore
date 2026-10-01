@@ -213,52 +213,61 @@ function List:removeDuplicates()
 end
 
 --- remove the first item that matches value
--- mutates this list in place
+-- the original is not modified
 -- @param value value to remove
 -- @param matcherFn optional function(item, value) returning true when the item matches.
---   defaults to ==
--- @return the removed item, or nil if no match was found
+--   defaults to == for scalars and deepEqual for tables
+-- @return new list without the first match, and the removed item (or nil if none matched)
 function List:removeFirstMatch(value, matcherFn)
 	local matches = utils.resolveMatcher(matcherFn)
-	for i, item in ipairs(self.items) do
-		if matches(item, value) then
-			return self:removeAt(i)
+	local removed = nil
+	local result = self:filter(function(item)
+		if removed == nil and matches(item, value) then
+			removed = item
+			return false
 		end
-	end
-	return nil
+		return true
+	end)
+	return result, removed
 end
 
 --- remove the item at the given 1 based index
--- mutates this list in place
+-- the original is not modified
 -- @param index 1 based index to remove
--- @return the removed item
+-- @return new list without that index, and the removed item
 function List:removeAt(index)
 	assert(type(index) == "number", "Expected number for index, got " .. type(index))
 	assert(index >= 1 and index <= #self.items, "Index out of bounds: " .. tostring(index))
-	return table.remove(self.items, index)
+
+	local removed = self:get(index)
+	return self:filter(function(_, i)
+		return i ~= index
+	end), removed
 end
 
 --- append an item to the end of this list
--- mutates this list in place
+-- the original is not modified
 -- @param item item to append
--- @return self to support chaining
+-- @return new list with the item appended
 function List:push(item)
-	table.insert(self.items, item)
-	return self
+	-- copy once via List.new then append directly to the list
+	-- to avoid another copy
+	local result = List.new(self)
+	table.insert(result.items, utils.deepCopy(item))
+	return result
 end
 
 --- remove every item that matches value
--- mutates this list in place
+-- the original is not modified
 -- @param value value to match against
 -- @param matcherFn optional function(item, value) returning true when the item matches.
---   defaults to ==
--- @return self to support chaining
+--   defaults to == for scalars and deepEqual for tables
+-- @return new list without matching items
 function List:removeAllMatches(value, matcherFn)
 	local matches = utils.resolveMatcher(matcherFn)
-	self.items = self:filter(function(item)
+	return self:filter(function(item)
 		return not matches(item, value)
-	end).items
-	return self
+	end)
 end
 
 --- shuffle items randomly

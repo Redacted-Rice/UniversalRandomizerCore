@@ -249,20 +249,32 @@ end
 
 --- append an item to the list for the given key
 -- creates an empty list for the key if it does not exist yet
--- mutates this group in place
+-- the original is not modified
 -- @param key key whose list should receive the item
 -- @param item item to append
--- @return self to support chaining
+-- @return new group with the item appended under key
 function Group:push(key, item)
 	assert(key ~= nil, "Key cannot be nil")
-	local list = self.lists[key]
-	if list == nil then
-		list = List.new({})
-		self.lists[key] = list
-		table.insert(self.keyOrder, key)
+
+	-- share unchanged lists. Only the pushed key gets a new List
+	local lists = {}
+	local keyOrder = {}
+	local found = false
+	self:each(function(existingKey, list)
+		table.insert(keyOrder, existingKey)
+		if existingKey == key then
+			lists[existingKey] = list:push(item)
+			found = true
+		else
+			lists[existingKey] = list
+		end
+	end)
+	-- If it wasn't found, add a new list for it
+	if not found then
+		table.insert(keyOrder, key)
+		lists[key] = List.new({ item })
 	end
-	list:push(item)
-	return self
+	return Group.new(lists, keyOrder)
 end
 
 --- remove the key and associated list from the group
@@ -282,36 +294,32 @@ function Group:remove(key)
 end
 
 --- remove matching values from every keyed list
--- mutates this group in place
+-- the original is not modified
 -- @param value value to match against in each list
 -- @param matcherFn optional function(item, value) forwarded to List:removeAllMatches.
---   defaults to ==
--- @return self to support chaining
+--   defaults to == for scalars and deepEqual for tables
+-- @return new group with matching values removed from each list
 function Group:removeAllValueMatches(value, matcherFn)
-	self:each(function(_, list)
-		list:removeAllMatches(value, matcherFn)
-	end)
-	return self
+	return self:applyToEachList("removeAllMatches", value, matcherFn)
 end
 
 --- remove every key that matches the given key
--- mutates this group in place
+-- the original is not modified
 -- @param key key to match against
 -- @param matcherFn optional function(existingKey, key) returning true when the key matches.
---   defaults to ==
--- @return self to support chaining
+--   defaults to == for scalars and deepEqual for tables
+-- @return new group without matching keys
 function Group:removeAllKeyMatches(key, matcherFn)
 	local matches = utils.resolveMatcher(matcherFn)
-	local toRemove = {}
-	for _, existingKey in ipairs(self.keyOrder) do
-		if matches(existingKey, key) then
-			table.insert(toRemove, existingKey)
+	local kept = {}
+	local keyOrder = {}
+	self:each(function(existingKey, list)
+		if not matches(existingKey, key) then
+			kept[existingKey] = list
+			table.insert(keyOrder, existingKey)
 		end
-	end
-	for _, existingKey in ipairs(toRemove) do
-		self:remove(existingKey)
-	end
-	return self
+	end)
+	return Group.new(kept, keyOrder)
 end
 
 --- randomize the items in the torandomize list using this grouped pool
