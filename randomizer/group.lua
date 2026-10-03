@@ -179,6 +179,52 @@ function Group:map(fn)
 	return List.new(mapped)
 end
 
+--- Remap the key and values of this map into different keys and/or values
+-- If only changing values, applyToEachList would be more straightfoward
+-- fn(key, list) returns newKey [, newValue]
+-- If newValue is omitted, the original list items are appended under newKey.
+-- If newValue is a List, that List is pushed as one item (keeps nested groupings).
+-- If newValue is an array like table, its items are appended.
+-- Any other newValue is pushed as one item.
+-- nil newKey drops the entry. Colliding newKeys accumulate items in first seen order.
+-- @param fn function that takes key and list and returns newKey [, newValue]
+-- @return new Group keyed by the returned keys
+function Group:remap(fn)
+	assert(type(fn) == "function", "Expected function, got " .. type(fn))
+
+	local mapped = {}
+	local keyOrder = {}
+	for _, key in ipairs(self.keyOrder) do
+		local list = self.lists[key]
+		local newKey, newValue = fn(key, list)
+		if newKey ~= nil then
+			newKey = utils.asTableKey(newKey)
+			local dest = mapped[newKey]
+			if dest == nil then
+				dest = {}
+				mapped[newKey] = dest
+				table.insert(keyOrder, newKey)
+			end
+
+			if newValue == nil then
+				for _, item in ipairs(list.items) do
+					table.insert(dest, item)
+				end
+			elseif utils.isList(newValue) then
+				table.insert(dest, newValue)
+			elseif type(newValue) == "table" and utils.isArrayLike(newValue) then
+				for _, item in ipairs(newValue) do
+					table.insert(dest, item)
+				end
+			else
+				table.insert(dest, newValue)
+			end
+		end
+	end
+
+	return Group.new(mapped, keyOrder)
+end
+
 --- concatenate all grouped lists into a single List
 -- useful when feeding group results into APIs that expect one stream
 -- items are ordered by key insertion order, then list order within each key
