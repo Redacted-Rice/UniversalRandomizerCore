@@ -478,6 +478,38 @@ describe("Group Module", function()
 
 			assert.are.same({ "a", "c" }, firstNames)
 		end)
+
+		it("should remap keys and nest List values as single items", function()
+			local grouped = randomizer.group({
+				line1 = { "a", "b" },
+				line2 = { "c" },
+				line3 = { "d", "e" },
+			})
+
+			local byShape = grouped:remap(function(key, list)
+				local shape = list:size() == 2 and "pair" or "single"
+				return shape, list
+			end)
+
+			assert.are.equal(2, byShape:get("pair"):size())
+			assert.are.equal(1, byShape:get("single"):size())
+			assert.are.same({ "a", "b" }, byShape:get("pair"):get(1):toTable())
+			assert.are.same({ "d", "e" }, byShape:get("pair"):get(2):toTable())
+			assert.are.same({ "c" }, byShape:get("single"):get(1):toTable())
+		end)
+
+		it("should remap and flatten when newValue is omitted", function()
+			local grouped = randomizer.group({
+				a = { 1, 2 },
+				b = { 3 },
+			})
+
+			local remapped = grouped:remap(function()
+				return "all"
+			end)
+
+			assert.are.same({ 1, 2, 3 }, remapped:get("all"):toTable())
+		end)
 	end)
 
 	describe("ApplyToEachList", function()
