@@ -165,7 +165,7 @@ end
 -- nil results are skipped. keys are visited in insertion order
 -- @param fn function that takes key and list and returns a value
 -- @return List of mapped values
-function Group:map(fn)
+function Group:mapToList(fn)
 	assert(type(fn) == "function", "Expected function, got " .. type(fn))
 
 	local mapped = {}
@@ -177,6 +177,26 @@ function Group:map(fn)
 	end
 
 	return List.new(mapped)
+end
+
+--- map each key/list pair to a table entry
+-- fn(key, list) returns newKey [, newValue]
+-- nil newKey drops the entry. colliding newKeys keep the last mapped value
+-- keys are visited in insertion order
+-- @param fn function that takes key and list and returns newKey [, newValue]
+-- @return plain table keyed by the returned keys
+function Group:mapToTable(fn)
+	assert(type(fn) == "function", "Expected function, got " .. type(fn))
+
+	local mapped = {}
+	for _, key in ipairs(self.keyOrder) do
+		local newKey, newValue = fn(key, self.lists[key])
+		if newKey ~= nil then
+			mapped[newKey] = newValue
+		end
+	end
+
+	return mapped
 end
 
 --- Remap the key and values of this map into different keys and/or values
@@ -291,36 +311,6 @@ function Group:add(key, list)
 	end
 	self.lists[key] = toListObject(list, key)
 	return self
-end
-
---- append an item to the list for the given key
--- creates an empty list for the key if it does not exist yet
--- the original is not modified
--- @param key key whose list should receive the item
--- @param item item to append
--- @return new group with the item appended under key
-function Group:push(key, item)
-	assert(key ~= nil, "Key cannot be nil")
-
-	-- share unchanged lists. Only the pushed key gets a new List
-	local lists = {}
-	local keyOrder = {}
-	local found = false
-	self:each(function(existingKey, list)
-		table.insert(keyOrder, existingKey)
-		if existingKey == key then
-			lists[existingKey] = list:push(item)
-			found = true
-		else
-			lists[existingKey] = list
-		end
-	end)
-	-- If it wasn't found, add a new list for it
-	if not found then
-		table.insert(keyOrder, key)
-		lists[key] = List.new({ item })
-	end
-	return Group.new(lists, keyOrder)
 end
 
 --- remove the key and associated list from the group

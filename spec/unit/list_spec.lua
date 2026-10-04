@@ -42,9 +42,46 @@ describe("List Module", function()
 
 			assert.are.same({ 1, 2, 3 }, copy:toTable())
 			assert.are_not.equal(original, copy)
-			copy = copy:removeAt(1)
+			copy = copy:removeFirstMatch(1)
 			assert.are.same({ 1, 2, 3 }, original:toTable())
 			assert.are.same({ 2, 3 }, copy:toTable())
+		end)
+
+		it("should wrap an array without copying via backedBy", function()
+			local items = { 1, 2, 3 }
+			local list = randomizer.List.backedBy(items)
+
+			assert.are.same({ 1, 2, 3 }, list:toTable())
+			assert.are.equal(items, list.items)
+		end)
+
+		it("should share backing storage with the original array", function()
+			local items = { 1, 2, 3 }
+			local list = randomizer.List.backedBy(items)
+
+			items[2] = 9
+			assert.are.equal(9, list:get(2))
+
+			list.items[3] = 7
+			assert.are.equal(7, items[3])
+		end)
+
+		it("should leave the backing array unchanged when returning a new list", function()
+			local items = { 1, 2, 3 }
+			local list = randomizer.List.backedBy(items)
+			local filtered = list:filter(function(x)
+				return x > 1
+			end)
+
+			assert.are.same({ 1, 2, 3 }, items)
+			assert.are.same({ 2, 3 }, filtered:toTable())
+			assert.are_not.equal(items, filtered.items)
+		end)
+
+		it("should error when backedBy receives a non-table", function()
+			assert.has_error(function()
+				randomizer.List.backedBy("not a table")
+			end)
 		end)
 	end)
 
@@ -284,24 +321,6 @@ describe("List Module", function()
 			assert.are.equal(3, list:size())
 		end)
 
-		it("should remove at a specific index", function()
-			local list = randomizer.list({ "a", "b", "c" })
-			local result, removed = list:removeAt(2)
-			assert.are.equal("b", removed)
-			assert.are.same({ "a", "c" }, result:toTable())
-			assert.are.same({ "a", "b", "c" }, list:toTable())
-		end)
-
-		it("should error for an out of bounds removeAt index", function()
-			local list = randomizer.list({ 1, 2 })
-			assert.has_error(function()
-				list:removeAt(0)
-			end)
-			assert.has_error(function()
-				list:removeAt(3)
-			end)
-		end)
-
 		it("should remove all matching values", function()
 			local list = randomizer.list({ 1, 2, 3, 2, 4, 2 })
 			local result = list:removeAllMatches(2)
@@ -348,24 +367,6 @@ describe("List Module", function()
 			local result = list:removeAllMatches({ id = 1 })
 			assert.are.equal(1, result:size())
 			assert.are.equal(2, result:get(1).id)
-		end)
-	end)
-
-	describe("Push", function()
-		it("should append an item and leave the original unchanged", function()
-			local list = randomizer.list({ 1, 2 })
-			local result = list:push(3)
-
-			assert.are.same({ 1, 2, 3 }, result:toTable())
-			assert.are.same({ 1, 2 }, list:toTable())
-			assert.are_not.equal(list, result)
-		end)
-
-		it("should support chaining", function()
-			local list = randomizer.list({ 1 })
-			local result = list:push(2):push(3)
-			assert.are.same({ 1, 2, 3 }, result:toTable())
-			assert.are.same({ 1 }, list:toTable())
 		end)
 	end)
 
@@ -714,58 +715,6 @@ describe("List Module", function()
 			}):select("getValue")
 
 			assert.are.same({ 2, 3, 4 }, list:toTable())
-		end)
-	end)
-
-	describe("Map", function()
-		it("should map items to new values", function()
-			local list = randomizer.list({ 1, 2, 3 })
-			local mapped = list:map(function(item)
-				return item * 2
-			end)
-
-			assert.are.same({ 2, 4, 6 }, mapped:toTable())
-		end)
-
-		it("should pass the 1-based index to the map function", function()
-			local list = randomizer.list({ "a", "b", "c" })
-			local mapped = list:map(function(item, index)
-				return item .. tostring(index)
-			end)
-
-			assert.are.same({ "a1", "b2", "c3" }, mapped:toTable())
-		end)
-
-		it("should skip nil results when mapping", function()
-			local list = randomizer.list({ 1, 2, 3, 4 })
-			local mapped = list:map(function(item)
-				if item % 2 == 0 then
-					return item
-				end
-			end)
-
-			assert.are.same({ 2, 4 }, mapped:toTable())
-		end)
-
-		it("should not modify the original list", function()
-			local original = { { value = 1 }, { value = 2 } }
-			local list = randomizer.list(original)
-
-			list:map(function(item)
-				item.value = item.value * 10
-				return item.value
-			end)
-
-			assert.are.equal(1, original[1].value)
-			assert.are.equal(2, original[2].value)
-		end)
-
-		it("should error when map function is invalid type", function()
-			local list = randomizer.list({ 1, 2, 3 })
-
-			assert.has_error(function()
-				list:map(42)
-			end)
 		end)
 	end)
 

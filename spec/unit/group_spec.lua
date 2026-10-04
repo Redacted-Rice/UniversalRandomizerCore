@@ -64,7 +64,7 @@ describe("Group Module", function()
 			assert.are_not.equal(original, copy)
 			assert.are_not.equal(original:get("a"), copy:get("a"))
 
-			copy:add("a", copy:get("a"):removeAt(1))
+			copy:add("a", copy:get("a"):removeFirstMatch(1))
 			copy:remove("b")
 			assert.are.same({ 1, 2 }, original:get("a"):toTable())
 			assert.are.equal(2, original:groupCount())
@@ -351,38 +351,6 @@ describe("Group Module", function()
 			assert.are.same({ 2 }, result:get("b"):toTable())
 			assert.are.equal(2, group:groupCount())
 		end)
-
-		it("should push an item onto an existing key", function()
-			local group = randomizer.group({
-				a = { 1 },
-			})
-			local result = group:push("a", 2)
-
-			assert.are.same({ 1, 2 }, result:get("a"):toTable())
-			assert.are.same({ 1 }, group:get("a"):toTable())
-			assert.are_not.equal(group, result)
-		end)
-
-		it("should create a key when pushing to a missing key", function()
-			local group = randomizer.group({
-				a = { 1 },
-			})
-			local result = group:push("b", 9)
-
-			assert.are.equal(2, result:groupCount())
-			assert.are.same({ 9 }, result:get("b"):toTable())
-			assert.are.equal(1, group:groupCount())
-			assert.is_nil(group:get("b"))
-		end)
-
-		it("should support push chaining", function()
-			local group = randomizer.group({})
-			local result = group:push("a", 1):push("a", 2):push("b", 3)
-
-			assert.are.same({ 1, 2 }, result:get("a"):toTable())
-			assert.are.same({ 3 }, result:get("b"):toTable())
-			assert.are.equal(0, group:groupCount())
-		end)
 	end)
 
 	describe("Get and Keys", function()
@@ -464,7 +432,61 @@ describe("Group Module", function()
 		end)
 	end)
 
-	describe("Map", function()
+	describe("MapToTable", function()
+		it("should map each key/list pair to a plain table entry", function()
+			local grouped = randomizer.group({
+				melee = { "Sword", "Axe" },
+				ranged = { "Bow" },
+			}, { "melee", "ranged" })
+
+			local pools = grouped:mapToTable(function(key, list)
+				return key .. "_pool", list:toTable()
+			end)
+
+			assert.are.same({ "Sword", "Axe" }, pools.melee_pool)
+			assert.are.same({ "Bow" }, pools.ranged_pool)
+		end)
+
+		it("should skip entries when newKey is nil", function()
+			local grouped = randomizer.group({
+				a = { 1 },
+				b = { 2 },
+				c = { 3 },
+			}, { "a", "b", "c" })
+
+			local mapped = grouped:mapToTable(function(key, list)
+				if key == "b" then
+					return nil
+				end
+				return key, list:get(1)
+			end)
+
+			assert.are.same({ a = 1, c = 3 }, mapped)
+		end)
+
+		it("should keep the last value when newKey collides", function()
+			local grouped = randomizer.group({
+				a = { 1 },
+				b = { 2 },
+			}, { "a", "b" })
+
+			local mapped = grouped:mapToTable(function(_, list)
+				return "all", list:get(1)
+			end)
+
+			assert.are.same({ all = 2 }, mapped)
+		end)
+
+		it("should error when mapper is not a function", function()
+			local grouped = randomizer.group({ a = { 1 } })
+
+			assert.has_error(function()
+				grouped:mapToTable("not a function")
+			end)
+		end)
+	end)
+
+	describe("MapToList", function()
 		it("should map each group list to a value", function()
 			local grouped = randomizer.groupBy({
 				{ name = "a", group = 1 },
@@ -472,7 +494,7 @@ describe("Group Module", function()
 				{ name = "c", group = 2 },
 			}, "group")
 
-			local firstNames = grouped:map(function(_, list)
+			local firstNames = grouped:mapToList(function(_, list)
 				return list:get(1).name
 			end):toTable()
 
@@ -484,7 +506,7 @@ describe("Group Module", function()
 				line1 = { "a", "b" },
 				line2 = { "c" },
 				line3 = { "d", "e" },
-			})
+			}, { "line1", "line2", "line3" })
 
 			local byShape = grouped:remap(function(key, list)
 				local shape = list:size() == 2 and "pair" or "single"
@@ -502,7 +524,7 @@ describe("Group Module", function()
 			local grouped = randomizer.group({
 				a = { 1, 2 },
 				b = { 3 },
-			})
+			}, { "a", "b" })
 
 			local remapped = grouped:remap(function()
 				return "all"
@@ -637,9 +659,7 @@ describe("Group Module", function()
 			}
 
 			local group = randomizer.groupBy(items, "category")
-			assert.are.same({ 1, 3, 2 }, group:toList():map(function(item)
-				return item.id
-			end):toTable())
+			assert.are.same({ 1, 3, 2 }, group:toList():select("id"):toTable())
 		end)
 	end)
 
