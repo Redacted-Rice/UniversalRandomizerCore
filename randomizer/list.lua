@@ -25,6 +25,21 @@ function List.new(list)
 	return self
 end
 
+--- wrap an existing array table without copying
+-- the list and the caller share the same backing table
+-- prefer List.new when you need a defensive copy
+-- @param array array-like table to wrap
+-- @return new list object backed by array
+function List.backedBy(array)
+	assert(type(array) == "table", "Expected table or List, got " .. type(array))
+
+	local self = setmetatable({}, List)
+	self._type = "List" -- for type checking
+	self.items = array
+
+	return self
+end
+
 --- select or extract values from items in the list using a field or function
 -- creates a new list with one entry for each item in the current list
 -- @param selectorFnOrField function or function name or field to extract values from items
@@ -42,24 +57,6 @@ function List:select(selectorFnOrField, ...)
 	end
 
 	return List.new(selected)
-end
-
---- map each item to a new value, returning a new List
--- nil results are skipped
--- @param fn function that takes item and optional 1-based index and returns a value
--- @return new list of mapped values
-function List:map(fn)
-	assert(type(fn) == "function", "Expected function, got " .. type(fn))
-
-	local mapped = {}
-	for i, item in ipairs(self.items) do
-		local value = fn(item, i)
-		if value ~= nil then
-			table.insert(mapped, value)
-		end
-	end
-
-	return List.new(mapped)
 end
 
 --- flatten one level of nested lists or array like tables into a single list
@@ -229,32 +226,6 @@ function List:removeFirstMatch(value, matcherFn)
 		return true
 	end)
 	return result, removed
-end
-
---- remove the item at the given 1 based index
--- the original is not modified
--- @param index 1 based index to remove
--- @return new list without that index, and the removed item
-function List:removeAt(index)
-	assert(type(index) == "number", "Expected number for index, got " .. type(index))
-	assert(index >= 1 and index <= #self.items, "Index out of bounds: " .. tostring(index))
-
-	local removed = self:get(index)
-	return self:filter(function(_, i)
-		return i ~= index
-	end), removed
-end
-
---- append an item to the end of this list
--- the original is not modified
--- @param item item to append
--- @return new list with the item appended
-function List:push(item)
-	-- copy once via List.new then append directly to the list
-	-- to avoid another copy
-	local result = List.new(self)
-	table.insert(result.items, utils.deepCopy(item))
-	return result
 end
 
 --- remove every item that matches value

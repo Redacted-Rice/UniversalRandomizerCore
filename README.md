@@ -167,7 +167,7 @@ Example: a Group might have `melee = {"Sword", "Axe"}` and `ranged = {"Bow", "Cr
 
 **`push`** - Append an item, returning a new List.
 
-**`removeAt`** / **`removeFirstMatch`** / **`removeAllMatches`** - Return a new List with the matching item(s) removed. `removeAt` and `removeFirstMatch` also return the removed item as a second value. Default matching uses `==` for scalars and `deepEqual` for tables.
+**`removeFirstMatch`** / **`removeAllMatches`** - Return a new List with the matching item(s) removed. `removeFirstMatch` also returns the removed item as a second value. Default matching uses `==` for scalars and `deepEqual` for tables.
 
 **`removeDuplicates`** - Drop duplicate values while keeping the first occurrence. Primitives compare directly. Tables compare by content, not reference.
 
@@ -182,8 +182,6 @@ local filtered = itemPools
     :applyToEachList("filter", function(item) return #item > 5 end)
     :prune()  -- drop keys whose lists became empty
 ```
-
-**`push`** - Append an item under a key (creates the key if needed), returning a new Group.
 
 **`removeAllValueMatches`** / **`removeAllKeyMatches`** - Return a new Group with matching values or keys removed. Same default matcher rules as List remove helpers.
 
