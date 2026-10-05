@@ -264,33 +264,56 @@ luarocks install --lua-version=5.2 --local luacheck
 
 Note: On Windows the busted `.bat` shim may need to be created manually.
 
-### Running Tests
+### Running Tests, Coverage, and Static Analysis
 
 From this directory, use the helper script (configures LuaRocks paths for Lua 5.2):
 
 ```bash
-chmod +x run_tests.sh   # once
-./run_tests.sh
+chmod +x run.sh   # once
+./run.sh          # same as ./run.sh -t
 ```
 
 On Windows:
 
 ```bat
-run_tests.bat
+run.bat           REM same as run.bat -t
 ```
+
+Modes:
+
+| Flag | Action |
+|------|--------|
+| `-t` | Run tests (default when no mode flag is given) |
+| `-c` | Run tests with coverage |
+| `-s` | Run luacheck static analysis |
 
 Run just functional or just unit tests:
 
 ```bash
-./run_tests.sh -r unit
-./run_tests.sh -r functional
+./run.sh -t -r unit
+./run.sh -t -r functional
+./run.sh -r unit          # -t is optional
+```
+
+On Windows:
+
+```bat
+run.bat -t -r unit
+run.bat -r functional
 ```
 
 Run specific test files:
 
 ```bash
-./run_tests.sh spec/unit/list_spec.lua
-./run_tests.sh spec/unit/group_spec.lua
+./run.sh spec/unit/list_spec.lua
+./run.sh spec/unit/group_spec.lua
+```
+
+On Windows:
+
+```bat
+run.bat spec\unit\list_spec.lua
+run.bat spec\unit\group_spec.lua
 ```
 
 ### Test Explanations
@@ -300,7 +323,7 @@ Run specific test files:
 All unit tests can be run with the following command
 
 ```bash
-./run_tests.sh -r unit
+./run.sh -r unit
 ```
 
 Current unit tests
@@ -320,7 +343,7 @@ These unit tests cover:
 All functional tests can be run with the following command
 
 ```bash
-./run_tests.sh -r functional
+./run.sh -r functional
 ```
 
 These functional tests cover:
@@ -336,10 +359,18 @@ statistics when you run to check coverage
 
 ### Code Coverage
 
-Run tests and generate coverage report:
+Run tests and generate a coverage report:
 
 ```bash
-./run_tests.sh --coverage
+./run.sh -c
+./run.sh -c -r unit
+```
+
+On Windows:
+
+```bat
+run.bat -c
+run.bat -c -r unit
 ```
 
 You shouldn't need to run `luacov` manually to generate the coverage report - this should be done automatically as part of running busted with coverage. This also uses the
@@ -353,8 +384,13 @@ Report is generated in `luacov.report.out`. The library currently has > 99% cove
 Run static checks on all files:
 
 ```bash
-eval "$(luarocks path --lua-version=5.2)"
-luacheck .
+./run.sh -s
+```
+
+On Windows:
+
+```bat
+run.bat -s
 ```
 
 ### Auto-Formatting
