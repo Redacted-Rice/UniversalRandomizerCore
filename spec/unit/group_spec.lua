@@ -500,7 +500,9 @@ describe("Group Module", function()
 
 			assert.are.same({ "a", "c" }, firstNames)
 		end)
+	end)
 
+	describe("Remap", function()
 		it("should remap keys and nest List values as single items", function()
 			local grouped = randomizer.group({
 				line1 = { "a", "b" },
@@ -531,6 +533,30 @@ describe("Group Module", function()
 			end)
 
 			assert.are.same({ 1, 2, 3 }, remapped:get("all"):toTable())
+		end)
+
+		it("should append array like newValue items", function()
+			local grouped = randomizer.group({
+				a = { 1 },
+			})
+
+			local remapped = grouped:remap(function()
+				return "all", { 10, 20 }
+			end)
+
+			assert.are.same({ 10, 20 }, remapped:get("all"):toTable())
+		end)
+
+		it("should push scalar newValue as a single item", function()
+			local grouped = randomizer.group({
+				a = { 1, 2 },
+			})
+
+			local remapped = grouped:remap(function()
+				return "tag", "solo"
+			end)
+
+			assert.are.same({ "solo" }, remapped:get("tag"):toTable())
 		end)
 	end)
 

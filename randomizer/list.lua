@@ -31,7 +31,8 @@ end
 -- @param array array-like table to wrap
 -- @return new list object backed by array
 function List.backedBy(array)
-	assert(type(array) == "table", "Expected table or List, got " .. type(array))
+	assert(type(array) == "table", "Expected table, got " .. type(array))
+	assert(not utils.isList(array), "Expected array table, got List. Use List.new to copy a List")
 
 	local self = setmetatable({}, List)
 	self._type = "List" -- for type checking
@@ -174,12 +175,12 @@ function List:filter(predicateFnOrField)
 	)
 
 	local filtered = {}
-	for i, item in ipairs(self.items) do
+	for _, item in ipairs(self.items) do
 		local keep
 		if predicateType == "string" then
 			keep = utils.getValue(item, predicateFnOrField)
 		else
-			keep = predicateFnOrField(item, i)
+			keep = predicateFnOrField(item)
 		end
 		if keep then
 			table.insert(filtered, item)

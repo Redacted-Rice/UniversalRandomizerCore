@@ -181,7 +181,7 @@ end
 
 --- map each key/list pair to a table entry
 -- fn(key, list) returns newKey [, newValue]
--- nil newKey drops the entry. colliding newKeys keep the last mapped value
+-- nil newKey drops the entry. newKey is normalized with asTableKey. colliding newKeys keep the last mapped value
 -- keys are visited in insertion order
 -- @param fn function that takes key and list and returns newKey [, newValue]
 -- @return plain table keyed by the returned keys
@@ -192,7 +192,7 @@ function Group:mapToTable(fn)
 	for _, key in ipairs(self.keyOrder) do
 		local newKey, newValue = fn(key, self.lists[key])
 		if newKey ~= nil then
-			mapped[newKey] = newValue
+			mapped[utils.asTableKey(newKey)] = newValue
 		end
 	end
 
