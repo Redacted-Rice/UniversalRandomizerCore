@@ -83,6 +83,13 @@ describe("List Module", function()
 				randomizer.List.backedBy("not a table")
 			end)
 		end)
+
+		it("should error when backedBy receives a List", function()
+			local list = randomizer.list({ 1, 2, 3 })
+			assert.has_error(function()
+				randomizer.List.backedBy(list)
+			end)
+		end)
 	end)
 
 	describe("Each", function()
