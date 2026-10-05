@@ -189,6 +189,31 @@ function List:filter(predicateFnOrField)
 	return List.new(filtered)
 end
 
+--- returns the first item that matches the predicate, or nil if none match
+-- the original list is not modified
+-- @param predicateFnOrField function that takes an item, or a field/method name (including
+--   colon separated paths like "getHost:type"). Truthy values match
+function List:findFirst(predicateFnOrField)
+	local predicateType = type(predicateFnOrField)
+	assert(
+		predicateType == "function" or predicateType == "string",
+		"Expected function or string, got " .. predicateType
+	)
+
+	for _, item in ipairs(self.items) do
+		local matched
+		if predicateType == "string" then
+			matched = utils.getValue(item, predicateFnOrField)
+		else
+			matched = predicateFnOrField(item)
+		end
+		if matched then
+			return item
+		end
+	end
+	return nil
+end
+
 --- group items in this list by a field or method, returning a Group
 -- Functionally equivalent to Group.groupBy(list, groupingFnOrField) to support better chaining
 -- @param groupingFnOrField function or function name or field that returns the value to group by;

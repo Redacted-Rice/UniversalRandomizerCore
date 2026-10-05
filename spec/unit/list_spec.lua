@@ -159,6 +159,86 @@ describe("List Module", function()
 		end)
 	end)
 
+	describe("FindFirst", function()
+		it("should return the first matching item", function()
+			local list = randomizer.list({ 1, 2, 3, 4, 5 })
+			assert.are.equal(4, list:findFirst(function(x)
+				return x > 3
+			end))
+		end)
+
+		it("should return nil when nothing matches", function()
+			local list = randomizer.list({ 1, 2, 3 })
+			assert.is_nil(list:findFirst(function(x)
+				return x > 10
+			end))
+		end)
+
+		it("should return nil for an empty list", function()
+			local list = randomizer.list({})
+			assert.is_nil(list:findFirst(function()
+				return true
+			end))
+		end)
+
+		it("should find using a field or method name", function()
+			local list = randomizer.list({
+				{ isAttack = function()
+					return false
+				end, name = "Rest" },
+				{ isAttack = function()
+					return true
+				end, name = "Bite" },
+				{ isAttack = function()
+					return true
+				end, name = "Ember" },
+			})
+
+			assert.are.equal("Bite", list:findFirst("isAttack").name)
+		end)
+
+		it("should find using a colon-separated getter path", function()
+			local Host = {}
+			Host.__index = Host
+
+			function Host.new(isActive)
+				local instance = setmetatable({}, Host)
+				instance.isActive = isActive
+				return instance
+			end
+
+			local Move = {}
+			Move.__index = Move
+
+			function Move.new(host, name)
+				local instance = setmetatable({}, Move)
+				instance.host = host
+				instance.name = name
+				return instance
+			end
+
+			function Move:getHost()
+				return self.host
+			end
+
+			local list = randomizer.list({
+				Move.new(Host.new(false), "Splash"),
+				Move.new(Host.new(true), "Bite"),
+				Move.new(Host.new(true), "Ember"),
+			})
+
+			assert.are.equal("Bite", list:findFirst("getHost:isActive").name)
+		end)
+
+		it("should leave the original list unchanged", function()
+			local list = randomizer.list({ 1, 2, 3 })
+			list:findFirst(function(x)
+				return x == 2
+			end)
+			assert.are.same({ 1, 2, 3 }, list:toTable())
+		end)
+	end)
+
 	describe("GroupBy", function()
 		it("should group items using a field or method name", function()
 			local grouped = randomizer.list({

@@ -165,6 +165,8 @@ Example: a Group might have `melee = {"Sword", "Axe"}` and `ranged = {"Bow", "Cr
 
 **`filter`** - Keep only items that match a condition. For example, `filter(function(x) return x.health > 5 end)` keeps only items with health greater than 5.
 
+**`findFirst`** - Return the first item that matches a condition (function or field/method path), or `nil` if none match. For example, `findFirst(function(x) return x.health > 5 end)` or `findFirst("isAttack")`.
+
 **`push`** - Append an item, returning a new List.
 
 **`removeFirstMatch`** / **`removeAllMatches`** - Return a new List with the matching item(s) removed. `removeFirstMatch` also returns the removed item as a second value. Default matching uses `==` for scalars and `deepEqual` for tables.
