@@ -140,9 +140,10 @@ This is a high level explanation of the main ideas in this library. For full API
 A **List** is a wrapper around array-like Lua tables. They are primarily used to allow further refinement or downselecting of the list and are used to hold the items being randomized as well as basic pools to select values from for randomization.
 
 **Key behaviors:**
-- Lists are read-only - operations like `filter()`, `shuffle()`, `push()`, `removeAllMatches()`, and similar helpers return new Lists without changing the original
+- Lists are read-only - operations like `filter()`, `shuffle()`, `removeAllMatches()`, and similar helpers return new Lists without changing the original
 - You can chain operations together (e.g., `list:filter(...):sort(...):shuffle(...)`)
 - Lists can be used as **pools** for randomization - when you randomize items, values are picked from teh pool
+- Prefer `toTable()` when you need a plain array for item level edits (consume, insert, index). Use `List.backedBy(array)` when you want a List view over an existing array without copying
 
 Example: If you have a List of weapon names `{"Sword", "Axe", "Bow"}`, you can use it to randomly assign weapons to characters in your game.
 
@@ -161,15 +162,15 @@ Example: a Group might have `melee = {"Sword", "Axe"}` and `ranged = {"Bow", "Cr
 
 **`select`** - Extract specific values from items. If you have a list of items with a `name` field, `select("name")` gives you a list of just the names. Use `list(items):select("field")` to build a pool from a plain table. Field and method getters also accept colon-separated paths such as `"getHost:type"`.
 
-**`map`** - Map each item to a new value with a function, returning a new List (skips nil).
-
 **`filter`** - Keep only items that match a condition. For example, `filter(function(x) return x.health > 5 end)` keeps only items with health greater than 5.
 
 **`findFirst`** - Return the first item that matches a condition (function or field/method path), or `nil` if none match. For example, `findFirst(function(x) return x.health > 5 end)` or `findFirst("isAttack")`.
 
-**`push`** - Append an item, returning a new List.
+**`flatMap`** / **`flatten`** - Map items to nested lists/arrays then flatten one level, or flatten nested lists already in the List.
 
 **`removeFirstMatch`** / **`removeAllMatches`** - Return a new List with the matching item(s) removed. `removeFirstMatch` also returns the removed item as a second value. Default matching uses `==` for scalars and `deepEqual` for tables.
+
+**`toTable`** - Deep copy the List contents into a plain array table for item level manipulation outside the List API.
 
 **`removeDuplicates`** - Drop duplicate values while keeping the first occurrence. Primitives compare directly. Tables compare by content, not reference.
 
@@ -191,7 +192,11 @@ local filtered = itemPools
 
 **`groupCount`** / **`itemCount`** - number of keyed lists, and total items across all lists.
 
-**`map`** - map each key/list pair to a value and collect the results into a List (skips nil).
+**`mapToList`** - map each key/list pair to a value and collect the results into a List (skips nil).
+
+**`mapToTable`** - map each key/list pair to a plain table entry (`newKey [, newValue]`). Nil keys drop the entry.
+
+**`remap`** - remap keys into a new Group. Returning a List as `newValue` nests that List as one item under the new key (useful for regrouping whole lists).
 
 **`toList`** - concatenate every keyed list into one List.
 
