@@ -113,7 +113,7 @@ end
 -- useful for expanding by a count
 -- @param countFnOrField function or field returning a non negative integer count
 -- @param mapFn optional function(item, index) returning each expanded value or nil to skip;
---   defaults to { item = item, index = index }
+--   defaults to repeating item
 -- @param startIndex optional first index (default 1)
 -- @return new list of expanded values
 function List:flatMapNTimes(countFnOrField, mapFn, startIndex)
@@ -139,7 +139,7 @@ function List:flatMapNTimes(countFnOrField, mapFn, startIndex)
 					table.insert(expanded, mapped)
 				end
 			else
-				table.insert(expanded, { item = item, index = index })
+				table.insert(expanded, item)
 			end
 		end
 	end
