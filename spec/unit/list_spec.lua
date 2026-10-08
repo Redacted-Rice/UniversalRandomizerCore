@@ -585,19 +585,17 @@ describe("List Module", function()
 	end)
 
 	describe("FlatMapNTimes", function()
-		it("should expand items by a count field with default pairs", function()
+		it("should expand items by a count field by repeating each item", function()
 			local list = randomizer.list({
 				{ name = "a", n = 2 },
 				{ name = "b", n = 1 },
 			})
 			local result = list:flatMapNTimes("n"):toTable()
 			assert.are.equal(3, #result)
-			assert.are.equal("a", result[1].item.name)
-			assert.are.equal(1, result[1].index)
-			assert.are.equal("a", result[2].item.name)
-			assert.are.equal(2, result[2].index)
-			assert.are.equal("b", result[3].item.name)
-			assert.are.equal(1, result[3].index)
+			assert.are.equal("a", result[1].name)
+			assert.are.equal("a", result[2].name)
+			assert.are.equal("b", result[3].name)
+			assert.are.equal(result[1], result[2])
 		end)
 
 		it("should expand with a custom mapper and start index", function()
