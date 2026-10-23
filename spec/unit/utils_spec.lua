@@ -747,5 +747,24 @@ describe("Utils Module", function()
 				utils.asArray({ a = 1 })
 			end)
 		end)
+
+		it("should deep copy array-like tables in copyArrayLike", function()
+			local original = { 1, 2 }
+			local copy = utils.copyArrayLike(original)
+			assert.are_not.equal(original, copy)
+			assert.are.same({ 1, 2 }, copy)
+			original[1] = 9
+			assert.are.equal(1, copy[1])
+		end)
+
+		it("should copy List items via toTable in copyArrayLike", function()
+			local randomizer = require("randomizer")
+			local list = randomizer.list({ "a", "b" })
+			local copy = utils.copyArrayLike(list)
+			assert.are.same({ "a", "b" }, copy)
+			list.items[1] = "z"
+			assert.are.equal("a", copy[1])
+		end)
+
 	end)
 end)

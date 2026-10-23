@@ -109,8 +109,11 @@ describe("Functional Tests - Typical Use Cases", function()
 			randomizer.setSeed(11)
 
 			local shapes = randomizer.list({ "small", "medium", "large" })
-			local pool = randomizer.pool(shapes, { consumable = true })
+			local pool = randomizer.pool(shapes, { consumable = true, regenerate = true })
 			local accepted
+			local matcher = function(a, b)
+				return a == b
+			end
 
 			while accepted == nil do
 				local candidate = pool:draw(true)
@@ -120,19 +123,17 @@ describe("Functional Tests - Typical Use Cases", function()
 				if candidate ~= "large" then
 					accepted = candidate
 				else
-					pool.pool = pool.pool:removeAllMatches(candidate, function(a, b)
-						return a == b
-					end)
-					pool.used = pool.used:removeAllMatches(candidate, function(a, b)
-						return a == b
-					end)
+					pool.pool = randomizer.List.backedBy(pool.pool):removeAllMatches(candidate, matcher).items
+					pool.used = randomizer.List.backedBy(pool.used):removeAllMatches(candidate, matcher).items
 				end
 			end
 
 			assert.is_true(accepted == "small" or accepted == "medium")
-			assert.is_nil(pool.pool:findFirst(function(x)
-				return x == "large"
-			end))
+			for _, pile in ipairs({ pool.pool, pool.used }) do
+				for _, value in ipairs(pile) do
+					assert.are_not.equal("large", value)
+				end
+			end
 		end)
 	end)
 
