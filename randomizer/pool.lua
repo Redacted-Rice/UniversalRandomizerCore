@@ -3,6 +3,7 @@
 -- @classmod Pool
 
 local utils = require("randomizer.utils")
+local List = require("randomizer.list")
 
 --- Pool with working and used array tables for consumable draws.
 local Pool = {}
@@ -56,6 +57,29 @@ function Pool:draw(allowExhausted)
 		table.insert(self.used, choice)
 	end
 	return choice
+end
+
+--- drop every matching value from the working pool and optionally from used
+-- @param value value to match against
+-- @param matcherFn optional function(item, value) forwarded to List:removeAllMatches
+-- @param removeFromUsed when true also filter used (default true). false only touches pool
+-- @return self for chaining
+function Pool:removeFromPool(value, matcherFn, removeFromUsed)
+	if removeFromUsed == nil then
+		removeFromUsed = true
+	end
+
+	self.pool = List.backedBy(self.pool):removeAllMatches(value, matcherFn).items
+	if self.consumable and removeFromUsed then
+		self.used = List.backedBy(self.used):removeAllMatches(value, matcherFn).items
+	end
+	return self
+end
+
+--- count of values still available to draw from the working pool
+-- @return number of items left in pool
+function Pool:remainingCount()
+	return #self.pool
 end
 
 return Pool
