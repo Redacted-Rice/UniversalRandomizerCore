@@ -683,6 +683,15 @@ describe("Utils Module", function()
 			assert.is_false(utils.isGroup({ a = { 1, 2 } }))
 			assert.is_false(utils.isGroup("not a group"))
 		end)
+
+		it("should check if value is Pool", function()
+			local randomizer = require("randomizer")
+			local pool = randomizer.pool({ 1, 2 })
+
+			assert.is_true(utils.isPool(pool))
+			assert.is_false(utils.isPool({ 1, 2 }))
+			assert.is_false(utils.isPool("not a pool"))
+		end)
 	end)
 
 	describe("Random Seed", function()

@@ -104,6 +104,38 @@ describe("Functional Tests - Typical Use Cases", function()
 		end)
 	end)
 
+	describe("Use Case 2b: Stateful pool for trial and error draws", function()
+		it("should draw shapes until one passes a filter then drop failed shapes from the pool", function()
+			randomizer.setSeed(11)
+
+			local shapes = randomizer.list({ "small", "medium", "large" })
+			local pool = randomizer.pool(shapes, { consumable = true })
+			local accepted
+
+			while accepted == nil do
+				local candidate = pool:draw(true)
+				if candidate == nil then
+					break
+				end
+				if candidate ~= "large" then
+					accepted = candidate
+				else
+					pool.pool = pool.pool:removeAllMatches(candidate, function(a, b)
+						return a == b
+					end)
+					pool.used = pool.used:removeAllMatches(candidate, function(a, b)
+						return a == b
+					end)
+				end
+			end
+
+			assert.is_true(accepted == "small" or accepted == "medium")
+			assert.is_nil(pool.pool:findFirst(function(x)
+				return x == "large"
+			end))
+		end)
+	end)
+
 	describe("Use Case 3: Grouped Stats by Type with Tuple Extraction", function()
 		it("should randomize defense and damage tuples based on entity type using grouped pools", function()
 			randomizer.setSeed(99)

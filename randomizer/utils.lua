@@ -175,6 +175,13 @@ function utils.isGroup(object)
 	return type(object) == "table" and object._type == "Group"
 end
 
+--- check if object is a pool instance
+-- @param object object to check
+-- @return true if its a pool
+function utils.isPool(object)
+	return type(object) == "table" and object._type == "Pool"
+end
+
 --- check if a table is array like (sequential integer keys from 1..n, or empty)
 -- empty tables are treated as empty arrays
 -- @param tbl table to check
