@@ -17,10 +17,9 @@ List.__index = List
 function List.new(list)
 	assert(type(list) == "table", "Expected table or List, got " .. type(list))
 
-	local items = utils.isList(list) and list.items or list
 	local self = setmetatable({}, List)
 	self._type = "List" -- for type checking
-	self.items = utils.deepCopy(items) -- deep copy to avoid side effects
+	self.items = utils.copyArrayLike(list)
 
 	return self
 end

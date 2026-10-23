@@ -219,6 +219,18 @@ function utils.asArray(listOrTable)
 	return listOrTable
 end
 
+--- copy items from a List or array-like table into a new array table
+-- @param listOrTable List or array-like table
+-- @return deep copied array table
+function utils.copyArrayLike(listOrTable)
+	if utils.isList(listOrTable) then
+		return listOrTable:toTable()
+	end
+	assert(type(listOrTable) == "table", "Expected List or table, got " .. type(listOrTable))
+	assert(utils.isArrayLike(listOrTable), "Expected array-like table, got non-sequential table")
+	return utils.deepCopy(listOrTable)
+end
+
 --- set underlying random seed for reproducibility
 -- @param seed number to use as random seed
 function utils.setSeed(seed)
