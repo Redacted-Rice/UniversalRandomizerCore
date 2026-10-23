@@ -94,4 +94,38 @@ describe("Pool", function()
 			end)
 		end)
 	end)
+
+	describe("removeFromPool", function()
+		it("should remove matches from pool and used by default", function()
+			local pool = randomizer.pool({ 1, 2, 3 }, { consumable = true, regenerate = false })
+			pool:removeFromPool(2, function(a, b)
+				return a == b
+			end)
+			assert.are.equal(2, #pool.pool)
+			for _, value in ipairs(pool.pool) do
+				assert.are_not.equal(2, value)
+			end
+		end)
+
+		it("should remove from pool only when removeFromUsed is false", function()
+			randomizer.setSeed(42)
+			local pool = randomizer.pool({ 1, 2, 3 }, { consumable = true, regenerate = false })
+			local drawn = pool:draw()
+			pool:removeFromPool(drawn, function(a, b)
+				return a == b
+			end, false)
+			assert.are.equal(1, #pool.used)
+			assert.are.equal(drawn, pool.used[1])
+		end)
+	end)
+
+	describe("remainingCount", function()
+		it("should reflect the working pool size", function()
+			local pool = randomizer.pool({ 1, 2, 3 })
+			assert.are.equal(3, pool:remainingCount())
+			randomizer.setSeed(1)
+			pool:draw()
+			assert.are.equal(3, pool:remainingCount())
+		end)
+	end)
 end)

@@ -123,8 +123,7 @@ describe("Functional Tests - Typical Use Cases", function()
 				if candidate ~= "large" then
 					accepted = candidate
 				else
-					pool.pool = randomizer.List.backedBy(pool.pool):removeAllMatches(candidate, matcher).items
-					pool.used = randomizer.List.backedBy(pool.used):removeAllMatches(candidate, matcher).items
+					pool:removeFromPool(candidate, matcher)
 				end
 			end
 
