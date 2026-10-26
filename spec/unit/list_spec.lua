@@ -90,6 +90,11 @@ describe("List Module", function()
 				randomizer.List.backedBy(list)
 			end)
 		end)
+
+		it("should expand choices from ordered keys and a weight table", function()
+			local list = randomizer.List.fromWeightTable({ "a", "b", "c" }, { a = 2, b = 0, c = 3 })
+			assert.are.same({ "a", "a", "c", "c", "c" }, list:toTable())
+		end)
 	end)
 
 	describe("Each", function()

@@ -39,6 +39,30 @@ function List.backedBy(array)
 	return self
 end
 
+--- build a weight pool list from ordered keys and a weight lookup table
+-- keys with missing or non-positive weights are skipped
+-- @param orderedKeys array of choice keys in desired order
+-- @param weightTable map from choice key to weight
+-- @return new flat list of choices repeated by weight
+function List.fromWeightTable(orderedKeys, weightTable)
+	assert(type(orderedKeys) == "table", "Expected table for orderedKeys, got " .. type(orderedKeys))
+	assert(type(weightTable) == "table", "Expected table for weightTable, got " .. type(weightTable))
+
+	local entries = {}
+	for _, choice in ipairs(orderedKeys) do
+		local weight = weightTable[choice]
+		if weight ~= nil and weight > 0 then
+			table.insert(entries, { choice = choice, weight = weight })
+		end
+	end
+	if #entries == 0 then
+		return List.backedBy({})
+	end
+	return List.backedBy(entries):flatMapNTimes("weight", function(entry)
+		return entry.choice
+	end)
+end
+
 --- select or extract values from items in the list using a field or function
 -- creates a new list with one entry for each item in the current list
 -- @param selectorFnOrField function or function name or field to extract values from items
