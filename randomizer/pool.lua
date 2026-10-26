@@ -9,13 +9,61 @@ local List = require("randomizer.list")
 local Pool = {}
 Pool.__index = Pool
 
---- create a pool from a list or table
+--- Creates a pool from a list or array table, copying items so the source is not modified
 -- @param list List or array table of choices
 -- @param poolOptions optional table with consumable and regenerate flags (same as useToRandomize)
 -- @return new Pool instance
 function Pool.new(list, poolOptions)
 	assert(type(list) == "table", "Expected table or List, got " .. type(list))
+	if utils.isPool(list) then
+		return Pool.copy(list, poolOptions)
+	end
 
+	return Pool._create(utils.copyArrayLike(list), poolOptions)
+end
+
+--- deep copy an existing pool including pool and used arrays
+-- @param source Pool to copy
+-- @param poolOptions optional flags. when omitted, copies consumable and regenerate from source
+-- @return new Pool instance
+function Pool.copy(source, poolOptions)
+	assert(utils.isPool(source), "Expected Pool, got " .. type(source))
+
+	local consumable, regenerate
+	if poolOptions == nil then
+		consumable = source.consumable
+		regenerate = source.regenerate
+	else
+		consumable, regenerate = utils.parsePoolOptions(poolOptions)
+		if not consumable then
+			regenerate = false
+		end
+	end
+
+	local self = setmetatable({}, Pool)
+	self._type = "Pool"
+	self.consumable = consumable
+	self.regenerate = regenerate
+	self.pool = utils.deepCopy(source.pool)
+	self.used = utils.deepCopy(source.used)
+	return self
+end
+
+--- Transfer ownership of an array-like table to the pool. Does not copy. Table should not continue to be used
+-- after transferring ownership
+-- @param array array-like table to back the working pool
+-- @param poolOptions optional table with consumable and regenerate flags
+-- @return new Pool instance
+function Pool.backedBy(array, poolOptions)
+	assert(type(array) == "table", "Expected table, got " .. type(array))
+	assert(not utils.isList(array), "Expected array table, got List. Use Pool.new to copy a List")
+	assert(utils.isArrayLike(array), "Expected array-like table for Pool.backedBy")
+
+	return Pool._create(array, poolOptions)
+end
+
+--- Creates the pool object with the passed data. Common helper for new and backedBy
+function Pool._create(data, poolOptions)
 	local consumable, regenerate = utils.parsePoolOptions(poolOptions)
 	if not consumable then
 		regenerate = false
@@ -23,11 +71,10 @@ function Pool.new(list, poolOptions)
 
 	local self = setmetatable({}, Pool)
 	self._type = "Pool"
+	self.pool = data
 	self.consumable = consumable
 	self.regenerate = regenerate
-	self.pool = utils.copyArrayLike(list)
 	self.used = {}
-
 	return self
 end
 
@@ -77,9 +124,15 @@ function Pool:removeFromPool(value, matcherFn, removeFromUsed)
 end
 
 --- count of values still available to draw from the working pool
+-- Does NOT include used values even if pool is regenerating
 -- @return number of items left in pool
 function Pool:remainingCount()
 	return #self.pool
+end
+
+-- string representation for debugging
+function Pool:__tostring()
+	return "Pool(" .. self:remainingCount() .. " remaining, " .. #self.used .. " used)"
 end
 
 return Pool

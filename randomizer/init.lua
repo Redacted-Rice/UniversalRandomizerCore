@@ -7,6 +7,7 @@ local utils = require("randomizer.utils")
 local List = require("randomizer.list")
 local Group = require("randomizer.group")
 local Pool = require("randomizer.pool")
+local KeyedPools = require("randomizer.keyedpools")
 -- Ensure logger stub or host bridge is available before modules that log
 require("randomizer.logger")
 local changedetector = require("randomizer.changedetector")
@@ -31,6 +32,10 @@ randomizer.isGroup = utils.isGroup
 --- check if object is a pool instance
 -- @function isPool
 randomizer.isPool = utils.isPool
+
+--- check if object is a keyed pools instance
+-- @function isKeyedPools
+randomizer.isKeyedPools = utils.isKeyedPools
 
 --- create a new list from a table, or a deep copy of an existing List
 -- @function list
@@ -81,6 +86,10 @@ randomizer.Group = Group
 --- stateful pool class for incremental draws
 -- @field Pool
 randomizer.Pool = Pool
+
+--- keyed map of pools for incremental draws
+-- @field KeyedPools
+randomizer.KeyedPools = KeyedPools
 
 --- change detector module which can be used to detect and log changes to objects
 -- Triggering snapshots and change detection must be called when desired. This is not

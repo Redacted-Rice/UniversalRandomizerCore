@@ -182,6 +182,13 @@ function utils.isPool(object)
 	return type(object) == "table" and object._type == "Pool"
 end
 
+--- check if object is a keyed pools instance
+-- @param object object to check
+-- @return true if its keyed pools
+function utils.isKeyedPools(object)
+	return type(object) == "table" and object._type == "KeyedPools"
+end
+
 --- check if a table is array like (sequential integer keys from 1..n, or empty)
 -- empty tables are treated as empty arrays
 -- @param tbl table to check

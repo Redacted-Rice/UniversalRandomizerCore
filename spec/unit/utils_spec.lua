@@ -692,6 +692,16 @@ describe("Utils Module", function()
 			assert.is_false(utils.isPool({ 1, 2 }))
 			assert.is_false(utils.isPool("not a pool"))
 		end)
+
+		it("should check if value is KeyedPools", function()
+			local randomizer = require("randomizer")
+			local lists = randomizer.group({ a = { 1 } })
+			local group = randomizer.KeyedPools.new(lists, {})
+
+			assert.is_true(utils.isKeyedPools(group))
+			assert.is_false(utils.isKeyedPools({}))
+			assert.is_false(utils.isKeyedPools("not keyed pools"))
+		end)
 	end)
 
 	describe("Random Seed", function()

@@ -24,9 +24,8 @@ function List.new(list)
 	return self
 end
 
---- wrap an existing array table without copying
--- the list and the caller share the same backing table
--- prefer List.new when you need a defensive copy
+--- Transfer ownership of an array-like table to the list. Does not copy. Table should not continue to be used
+-- after transferring ownership
 -- @param array array-like table to wrap
 -- @return new list object backed by array
 function List.backedBy(array)
