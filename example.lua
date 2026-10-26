@@ -185,6 +185,45 @@ for _, item in ipairs(itemsWithMultiplier) do
 end
 print()
 
+print("Incremental pool draws")
+print("---------------------------------")
+
+local shapePool = randomizer.pool({ "small", "medium", "large" }, { consumable = true, regenerate = true })
+local acceptedShape
+
+while acceptedShape == nil do
+	local candidate = shapePool:draw(true)
+	if candidate == nil then
+		break
+	end
+	if candidate ~= "large" then
+		acceptedShape = candidate
+	else
+		shapePool:removeFromPool(candidate, function(a, b)
+			return a == b
+		end)
+		print("  rejected:", candidate, "(removed from pool)")
+	end
+end
+
+print("Accepted shape:", acceptedShape or "(none)")
+print()
+
+print("Keyed pools prioritized drawing")
+print("---------------------------")
+
+local namePools = randomizer.KeyedPools.new({
+	fallback = { "NameA", "NameB" },
+	preferred = { "RareName" },
+}, { consumable = true, regenerate = false })
+
+local drawn, fromKey = namePools:drawFirstAvailable({ "preferred", "fallback" })
+print(string.format("Drew %s from key %s", drawn, fromKey))
+print(string.format("Working pool sizes: preferred=%d fallback=%d",
+	namePools:get("preferred"):remainingCount(),
+	namePools:get("fallback"):remainingCount()))
+print()
+
 print("Processing lists")
 print("----------------")
 

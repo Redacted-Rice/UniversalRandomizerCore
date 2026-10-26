@@ -15,7 +15,7 @@ KeyedPools.__index = KeyedPools
 function KeyedPools.new(poolsMap, poolOptions)
 	assert(type(poolsMap) == "table", "Expected table, got " .. type(poolsMap))
 
-	-- If its already a pool, redirect to the pool copy fn
+	-- If its already keyed pools, redirect to the copy fn
 	if utils.isKeyedPools(poolsMap) then
 		return KeyedPools.copy(poolsMap, poolOptions)
 	end
@@ -88,7 +88,8 @@ function KeyedPools:get(key)
 	return self.pools[key]
 end
 
---- remaining draws for one key, or 0 when missing
+--- working pool size for one key, or 0 when missing
+-- uses remainingCount only, not canDraw. intended for regenerate = false capacity checks
 -- @param key pool key
 -- @return remainingCount for that pool
 function KeyedPools:remainingForKey(key)
@@ -100,6 +101,7 @@ function KeyedPools:remainingForKey(key)
 end
 
 --- sum remainingForKey across keys in order
+-- counts working pool sizes only. see remainingForKey for regenerate behavior
 -- @param keys array of pool keys
 -- @return total remaining draws
 function KeyedPools:remainingForKeys(keys)
@@ -112,6 +114,7 @@ end
 
 --- first key in keys with at least one unreserved draw left
 -- Note this is "soft" reservations and does not change the objects state
+-- uses remainingCount, so regenerate pools may report no capacity while canDraw is still true
 -- @param keys array of pool keys in priority order
 -- @param reservedCounts map of key to committed reservation count
 -- @param tempReserved optional map of uncommitted reservations for this attempt
@@ -126,25 +129,28 @@ function KeyedPools:firstKeyWithCapacity(keys, reservedCounts, tempReserved)
 	return nil
 end
 
---- reserve one draw against the first key with capacity, updating tempReserved
+--- reserve one draw against the first key with capacity, updating tempReserved when provided
 -- Note this is "soft" reservations and does not change the objects state
+-- @param tempReserved optional map of uncommitted reservations for this attempt
 -- @return reserved key or nil
 function KeyedPools:tryReserveKey(keys, reservedCounts, tempReserved)
 	local key = self:firstKeyWithCapacity(keys, reservedCounts, tempReserved)
 	if key == nil then
 		return nil
 	end
-	tempReserved[key] = (tempReserved[key] or 0) + 1
+	if tempReserved ~= nil then
+		tempReserved[key] = (tempReserved[key] or 0) + 1
+	end
 	return key
 end
 
---- draw from the first key in priority order that still has items
+--- draw from the first key in priority order that can still draw
 -- @param keys array of pool keys
 -- @return drawn value and the key it came from, or nil and nil when nothing left
 function KeyedPools:drawFirstAvailable(keys)
 	for _, key in ipairs(keys) do
 		local pool = self:get(key)
-		if pool ~= nil and pool:remainingCount() > 0 then
+		if pool ~= nil and pool:canDraw() then
 			return pool:draw(), key
 		end
 	end
@@ -160,7 +166,14 @@ function KeyedPools:each(fn)
 	end
 end
 
---- total items left to draw across all pools
+--- support pairs(keyedPools) so callers can iterate key, pool without :each()
+-- @return iterator suitable for for key, pool in pairs(keyedPools)
+function KeyedPools:__pairs()
+	return pairs(self.pools)
+end
+
+--- total working pool size across all keyed pools
+-- sum of remainingCount only, not canDraw
 -- @return sum of each pool remainingCount
 function KeyedPools:itemCount()
 	local total = 0

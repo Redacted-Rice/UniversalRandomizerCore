@@ -84,6 +84,17 @@ describe("KeyedPools", function()
 			assert.is_nil(key)
 		end)
 
+		it("should drawFirstAvailable when regenerate leaves items in used only", function()
+			randomizer.setSeed(7)
+			local keyed = randomizer.KeyedPools.new({ k = { 1, 2 } }, { consumable = true, regenerate = true })
+			keyed:get("k"):draw()
+			keyed:get("k"):draw()
+			assert.are.equal(0, keyed:get("k"):remainingCount())
+			local value, key = keyed:drawFirstAvailable({ "k" })
+			assert.are.equal("k", key)
+			assert.is_true(value == 1 or value == 2)
+		end)
+
 		it("should pick firstKeyWithCapacity and tryReserveKey with reservations", function()
 			local keyed = randomizer.KeyedPools.new({ k = { 1 } }, { consumable = true })
 			local reserved = {}
@@ -92,6 +103,25 @@ describe("KeyedPools", function()
 			assert.are.equal("k", keyed:tryReserveKey({ "k" }, reserved, temp))
 			assert.are.equal(1, temp.k)
 			assert.is_nil(keyed:firstKeyWithCapacity({ "k" }, reserved, temp))
+		end)
+
+		it("should allow nil tempReserved without tracking the reservation", function()
+			local keyed = randomizer.KeyedPools.new({ k = { 1 } }, { consumable = true })
+			assert.are.equal("k", keyed:tryReserveKey({ "k" }, {}, nil))
+			assert.are.equal("k", keyed:tryReserveKey({ "k" }, {}, nil))
+		end)
+	end)
+
+	describe("__pairs", function()
+		it("should iterate every keyed pool", function()
+			local keyed = randomizer.KeyedPools.new({ a = { 1 }, b = { 2 } }, {})
+			local count = 0
+			for key, pool in pairs(keyed) do
+				count = count + 1
+				assert.is_true(key == "a" or key == "b")
+				assert.is_true(randomizer.isPool(pool))
+			end
+			assert.are.equal(2, count)
 		end)
 	end)
 

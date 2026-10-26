@@ -78,9 +78,20 @@ function Pool._create(data, poolOptions)
 	return self
 end
 
+--- whether draw would succeed without allowExhausted
+-- with regenerate, true when the working pool is empty but used still has items
+-- @return boolean
+function Pool:canDraw()
+	if #self.pool > 0 then
+		return true
+	end
+	return self.consumable and self.regenerate and #self.used > 0
+end
+
 --- draw one random element from the pool
 -- non consumable pools put the choice back immediately and ignore regenerate
 -- consumable pools move choices to used, then swap used into pool when empty if regenerate
+-- regenerate here swaps used back into the working pool, unlike List:useToRandomize which refills from the original list
 -- @param allowExhausted when true return nil if nothing left to draw
 -- @return drawn element or nil
 function Pool:draw(allowExhausted)
@@ -123,9 +134,9 @@ function Pool:removeFromPool(value, matcherFn, removeFromUsed)
 	return self
 end
 
---- count of values still available to draw from the working pool
--- Does NOT include used values even if pool is regenerating
--- @return number of items left in pool
+--- count of values in the working pool only
+-- does not include used even when regenerate would make the pool drawable via canDraw
+-- @return number of items in the working pool array
 function Pool:remainingCount()
 	return #self.pool
 end
