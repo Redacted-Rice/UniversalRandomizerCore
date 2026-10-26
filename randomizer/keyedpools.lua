@@ -151,7 +151,10 @@ function KeyedPools:drawFirstAvailable(keys)
 	for _, key in ipairs(keys) do
 		local pool = self:get(key)
 		if pool ~= nil and pool:canDraw() then
-			return pool:draw(), key
+			local value = pool:draw(true)
+			if value ~= nil then
+				return value, key
+			end
 		end
 	end
 	return nil, nil

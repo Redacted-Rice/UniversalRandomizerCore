@@ -91,7 +91,8 @@ end
 --- draw one random element from the pool
 -- non consumable pools put the choice back immediately and ignore regenerate
 -- consumable pools move choices to used, then swap used into pool when empty if regenerate
--- regenerate here swaps used back into the working pool, unlike List:useToRandomize which refills from the original list
+-- regenerate swaps used back into the working pool here
+-- unlike List:useToRandomize which refills from the original list
 -- @param allowExhausted when true return nil if nothing left to draw
 -- @return drawn element or nil
 function Pool:draw(allowExhausted)
@@ -141,9 +142,15 @@ function Pool:remainingCount()
 	return #self.pool
 end
 
+--- count of values in the used pile (consumable draws only)
+-- @return number of items in the used array
+function Pool:usedCount()
+	return #self.used
+end
+
 -- string representation for debugging
 function Pool:__tostring()
-	return "Pool(" .. self:remainingCount() .. " remaining, " .. #self.used .. " used)"
+	return "Pool(" .. self:remainingCount() .. " remaining, " .. self:usedCount() .. " used)"
 end
 
 return Pool
