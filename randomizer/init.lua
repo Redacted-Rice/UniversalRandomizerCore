@@ -49,6 +49,10 @@ randomizer.group = Group.new
 -- @function pool
 randomizer.pool = Pool.new
 
+--- create keyed pools from a group or map of pool sources
+-- @function keyedPools
+randomizer.keyedPools = KeyedPools.new
+
 --- create a group by grouping items based on a field or function
 -- @function groupBy
 randomizer.groupBy = Group.groupBy

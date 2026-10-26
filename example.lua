@@ -212,7 +212,7 @@ print()
 print("Keyed pools prioritized drawing")
 print("---------------------------")
 
-local namePools = randomizer.KeyedPools.new({
+local namePools = randomizer.keyedPools({
 	fallback = { "NameA", "NameB" },
 	preferred = { "RareName" },
 }, { consumable = true, regenerate = false })
