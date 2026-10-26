@@ -7,7 +7,7 @@ Lua based randomization functions to support randomizing arbitrary lists of obje
 - Chainable API: Fluent interface for composing operations
 - List/Group Management: Filter, sort, shuffle, remove duplicates, and select on Lists; Groups use `applyToEachList` / `prune` for per-key List ops
 - Change Detection: Snapshot object fields and report what changed after randomization
-- Pools and Grouped Pools: Define pools to pull values from including having multiple pools to select from based on conditions
+- Pools and Grouped Pools: Lists and Groups for batch `useToRandomize`, plus stateful `Pool` / `KeyedPools` for one draw at a time
 - Hybrid API: Works with both wrapper objects and plain tables
 - Type-Safe: Built-in validation and helpful error messages
 - Reproducible: Uses randomization built in to lua which supports seeds
@@ -142,7 +142,7 @@ A **List** is a wrapper around array-like Lua tables. They are primarily used to
 **Key behaviors:**
 - Lists are read-only - operations like `filter()`, `shuffle()`, `removeAllMatches()`, and similar helpers return new Lists without changing the original
 - You can chain operations together (e.g., `list:filter(...):sort(...):shuffle(...)`)
-- Lists can be used as **pools** for randomization - when you randomize items, values are picked from teh pool
+- Lists can be used as **pools** for randomization - when you randomize items, values are picked from the pool
 - Prefer `toTable()` when you need a plain array for item level edits (consume, insert, index). Use `List.backedBy(array)` when you want a List view over an existing array without copying
 
 Example: If you have a List of weapon names `{"Sword", "Axe", "Bow"}`, you can use it to randomly assign weapons to characters in your game.
@@ -157,6 +157,26 @@ A **Group** is a collection of multiple Lists, each associated with a specific k
 - You have categorized data that should stay separate
 
 Example: a Group might have `melee = {"Sword", "Axe"}` and `ranged = {"Bow", "Crossbow"}`. When randomizing, you pick which pool to use based on the weapon's type.
+
+### Pool
+
+A **Pool** holds choices you draw from one at a time. Use it when batch `useToRandomize` is not enough, for example trial and error (draw, check a rule, reject and remove bad picks) or any loop where the pool changes between draws.
+
+**When to use a Pool instead of a List pool:**
+- You need **`draw()`** in a loop rather than assigning every target in one call
+- You want to **`removeFromPool`** after a failed attempt
+- You care about **consumable** state split between the working pile (`pool`) and drawn pile (`used`)
+
+Example: draw random shapes until one passes a filter, and drop rejected shapes from the pool so they are not picked again.
+
+### Keyed Pools
+
+A **KeyedPools** is a map of **Pool** instances under keys. Build one from a plain table of arrays, or from a **Group** (each keyed list becomes its own Pool).
+
+**When to use KeyedPools:**
+- Several consumable pools keyed by category (type, stage, rarity bucket, etc.)
+- Priority-ordered fallback: try pool `b`, then `a`, with **`drawFirstAvailable({ "b", "a" })`**
+- Planning how many names are left before committing: **`remainingForKeys`**, **`firstKeyWithCapacity`**, **`tryReserveKey`** (soft reservations, no state change on the pools)
 
 ### Common List Operations
 
@@ -224,11 +244,11 @@ String getters and setters passed to `select`, `groupBy`, `useToRandomize`, and 
 
 **`poolOptions`** - defines how the pool behaves
 
-- **`consume`** - whether the pool is consumable or not. defaults to non-consumable. If true, when items are selected, they're removed from the pool. If false, they stay in the pool.
+- **`consumable`** - whether the pool is consumable or not. defaults to non-consumable. If true, when items are selected, they're removed from the working pool (and stored in a backup if regenerate is used). If false, they stay available each draw.
     - **consumable** pools are like a bag where you pull an item from it and don't put it back
     - **non-consumable** pools can be thought of like rolling dice. If you roll a value once, you can still roll it again.
 
-- **`regenerate`** - only applicable for consumable pools. If true, when the pool is empty and you try to draw a new value, it will create a new pool with all the initial values. If false, it will throw an error.
+- **`regenerate`** - only applicable for consumable pools. If true, when the working pool is empty and you try to draw again, drawing continues instead of erroring. If false, an exhausted pool errors (or `draw(true)` returns `nil` on a **Pool**).
     - **regenerating** pools are like a bag and once you draw all the items out of the bag you then put them all back in and continue drawing. This can be used to ensure a more even distribution of values.
     - **non-regenerating** pools are like if you took everyone's phone, threw it in a bag and then everyone took one out. There should be no extras as you're just reassigning/shuffling items. In this case the expectation is that the pool size is the same as the number of items being randomized.
 
@@ -336,6 +356,8 @@ All unit tests can be run with the following command
 Current unit tests
 - `spec/unit/list_spec.lua` - List class tests
 - `spec/unit/group_spec.lua` - Group class tests
+- `spec/unit/pool_spec.lua` - Pool class tests
+- `spec/unit/keyedpools_spec.lua` - KeyedPools class tests
 - `spec/unit/utils_spec.lua` - Utility functions tests
 - `spec/unit/changedetector_spec.lua` - Change detector tests
 - `spec/unit/init_spec.lua` - Standalone functions tests
