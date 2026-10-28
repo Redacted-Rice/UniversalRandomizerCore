@@ -169,6 +169,15 @@ describe("Utils Module - getValue and setValue", function()
 			assert.are.equal(tbl, utils.asTableKey(tbl))
 		end)
 
+		it("should stringify tables that define __tostring", function()
+			local wrapper = setmetatable({}, {
+				__tostring = function()
+					return "Test String"
+				end,
+			})
+			assert.are.equal("Test String", utils.asTableKey(wrapper))
+		end)
+
 		-- enum userdata behavior is covered in RandomizerEnumSelectTest.java.
 		-- pure lua busted specs cannot construct userdata
 	end)

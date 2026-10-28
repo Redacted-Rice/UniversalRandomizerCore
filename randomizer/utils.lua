@@ -290,13 +290,23 @@ local function hasColonPath(path)
 end
 
 --- normalize a value for use as a lua table key
--- java enums and other userdata become tostring so groupBy / lookups stay stable
--- leave other values alone so ints and strings keep working as keys
+-- userdata and tables with __tostring become strings so groupBy / lookups stay stable
+-- plain tables without __tostring are left alone
 -- @param value value that will be used as a table key
 -- @return key-safe value
 function utils.asTableKey(value)
-	if value ~= nil and type(value) == "userdata" then
+	if value == nil then
+		return value
+	end
+	local valueType = type(value)
+	if valueType == "userdata" then
 		return tostring(value)
+	end
+	if valueType == "table" then
+		local mt = getmetatable(value)
+		if mt and mt.__tostring then
+			return tostring(value)
+		end
 	end
 	return value
 end
