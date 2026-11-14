@@ -242,15 +242,17 @@ String getters and setters passed to `select`, `groupBy`, `useToRandomize`, and 
 
 `utils.getValue` returns the raw extracted value, including Java enum userdata. Grouping and grouped `useToRandomize` selectors pass those values through `utils.asTableKey` so userdata enums become stable string keys. Use `select` when you want the real enum value for assignment. After `groupBy` on an enum field, look up groups with the stringified enum name (for example `group:get("FIRE")`), not the enum userdata value.
 
-**`poolOptions`** - defines how the pool behaves
+**`poolOptions`** - defines how the pool behaves. All options default to false/nil unless otherwise specified
 
 - **`consumesSelected`** - when true, each selected item is removed from the working pool (and tracked in `used` when auto-regenerating). When false, items stay in the working pool for every draw (sampling with replacement).
 
 - **`autoRegenerates`** - when `consumesSelected` is true, refills the working pool from `used` when it is empty so drawing can continue. If false, an exhausted pool errors or returns nil depending on `errorOnExhausted`.
 
-- **`errorOnExhausted`** - on Pool `draw`, when the pool cannot draw and this is false, returns nil. When true, raises an error instead. Can be useful for retry vs abort behavior
+- **`errorOnExhausted`** - on Pool `draw`, when the pool cannot draw and this is false, returns nil. When true, raises an error instead. Can be useful for retry vs abort behavior.
 
-- **`constraintFn`** - optional `function(target, candidate)` for `drawWithConstraint` / `useToRandomize`. If the function returns falsey, it will not be returned. Only truthy returns will be returned or nil/error if no truthy values were found. Anything rejected stays in the pool
+- **`constraintFn`** - optional `function(target, candidate)` for `drawWithConstraint` / `useToRandomize`. If the function returns falsey, the candidate is not accepted. Only truthy returns are chosen and if there are none, it will return nil/error. Rejected candidates stay in the working pool unless `constraintRemovesFailures` is set.
+
+- **`constraintRemovesFailures`** - when false, constraint rejections are returned to the working pool. When true, rejections stay removed from the working pool and are put in the used pool instead. These will be readded when the pool is regenerated.
 
 ## LDoc Generated Docs
 

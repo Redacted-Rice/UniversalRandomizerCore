@@ -371,7 +371,7 @@ end
 --- randomize a field of the items in the torandomize list using this pool
 -- @param toRandomize list or table of items to randomize in place
 -- @param setterFnOrField function or function name or field that sets the value on the item
--- @param poolOptions optional table (consumesSelected, autoRegenerates, errorOnExhausted, constraintFn). See Pool.new
+-- @param poolOptions optional flags. See Pool.new
 -- @return the modified torandomize list
 function List:useToRandomize(toRandomize, setterFnOrField, poolOptions)
 	local targets = utils.asArray(toRandomize)
