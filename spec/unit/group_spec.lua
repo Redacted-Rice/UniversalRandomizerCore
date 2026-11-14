@@ -928,7 +928,7 @@ describe("Group Module", function()
 			local selectors = { "A", "A", "B", "B", "B" }
 			pools:useToRandomize(targets, function(_, i)
 				return selectors[i]
-			end, "val", { consumable = true, regenerate = false })
+			end, "val", { consumesSelected = true, autoRegenerates = false })
 			-- group A results should be a permutation of its pool with no duplicates
 			local aResults = { targets[1].val, targets[2].val }
 			table.sort(aResults)
@@ -946,7 +946,7 @@ describe("Group Module", function()
 			assert.has_error(function()
 				pools:useToRandomize(targets, function()
 					return "K"
-				end, "val", { consumable = true, regenerate = false })
+				end, "val", { consumesSelected = true, autoRegenerates = false, errorOnExhausted = true })
 			end)
 		end)
 
@@ -956,7 +956,7 @@ describe("Group Module", function()
 			local targets = { { val = 0 }, { val = 0 }, { val = 0 } }
 			pools:useToRandomize(targets, function()
 				return "K"
-			end, "val", { consumable = true, regenerate = true })
+			end, "val", { consumesSelected = true, autoRegenerates = true })
 			for _, obj in ipairs(targets) do
 				assert.is_true(obj.val == 1 or obj.val == 2)
 			end
@@ -972,7 +972,7 @@ describe("Group Module", function()
 			local pools = randomizer.group({ A = { "x", "y" }, B = { "u", "v", "w" } })
 			pools:useToRandomize(items, function(item)
 				return item.key
-			end, "name", { consumable = true, regenerate = false })
+			end, "name", { consumesSelected = true, autoRegenerates = false })
 			-- A names should be unique and from its pool
 			local a = {}
 			for _, it in ipairs(items) do

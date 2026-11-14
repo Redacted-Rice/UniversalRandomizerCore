@@ -3,6 +3,7 @@
 -- @classmod List
 
 local utils = require("randomizer.utils")
+local Pool = require("randomizer.pool")
 
 --- A List object that supports randomization helpers.
 -- Provides table-like containers with utility methods.
@@ -190,26 +191,7 @@ end
 --   utils.getValue; truthy values are kept
 -- @return new list with filtered items
 function List:filter(predicateFnOrField)
-	local predicateType = type(predicateFnOrField)
-	assert(
-		predicateType == "function" or predicateType == "string",
-		"Expected function or string, got " .. predicateType
-	)
-
-	local filtered = {}
-	for _, item in ipairs(self.items) do
-		local keep
-		if predicateType == "string" then
-			keep = utils.getValue(item, predicateFnOrField)
-		else
-			keep = predicateFnOrField(item)
-		end
-		if keep then
-			table.insert(filtered, item)
-		end
-	end
-
-	return List.new(filtered)
+	return List.backedBy(utils.filterArray(self.items, predicateFnOrField))
 end
 
 --- returns the first item that matches the predicate, or nil if none match
@@ -266,14 +248,14 @@ end
 function List:removeFirstMatch(value, matcherFn)
 	local matches = utils.resolveMatcher(matcherFn)
 	local removed = nil
-	local result = self:filter(function(item)
+	local filteredItems = utils.filterArray(self.items, function(item)
 		if removed == nil and matches(item, value) then
 			removed = item
 			return false
 		end
 		return true
 	end)
-	return result, removed
+	return List.backedBy(filteredItems), removed
 end
 
 --- remove every item that matches value
@@ -284,9 +266,9 @@ end
 -- @return new list without matching items
 function List:removeAllMatches(value, matcherFn)
 	local matches = utils.resolveMatcher(matcherFn)
-	return self:filter(function(item)
+	return List.backedBy(utils.filterArray(self.items, function(item)
 		return not matches(item, value)
-	end)
+	end))
 end
 
 --- shuffle items randomly
@@ -316,14 +298,13 @@ function List:sort(compareFn)
 end
 
 --- find a min or max value from items using an optional extractor and compare function
--- @local
 -- @param items array of items to inspect
 -- @param valueFnOrField optional extractor passed to utils.getValue
 -- @param compareFn optional function(a, b) returning true when a wins over b
 -- @param defaultCompare compare function used when compareFn is nil
 -- @param isMax true for max, false for min
 -- @return winning value, or nil when no comparable values were found
-local function findMinMax(items, valueFnOrField, compareFn, defaultCompare, isMax)
+function List._findMinMax(items, valueFnOrField, compareFn, defaultCompare, isMax)
 	local wins
 	if compareFn == nil then
 		wins = defaultCompare
@@ -367,7 +348,7 @@ function List:max(valueFnOrField, compareFn)
 		return nil
 	end
 
-	return findMinMax(self.items, valueFnOrField, compareFn, function(a, b)
+	return List._findMinMax(self.items, valueFnOrField, compareFn, function(a, b)
 		return a > b
 	end, true)
 end
@@ -382,7 +363,7 @@ function List:min(valueFnOrField, compareFn)
 		return nil
 	end
 
-	return findMinMax(self.items, valueFnOrField, compareFn, function(a, b)
+	return List._findMinMax(self.items, valueFnOrField, compareFn, function(a, b)
 		return a < b
 	end, false)
 end
@@ -390,41 +371,16 @@ end
 --- randomize a field of the items in the torandomize list using this pool
 -- @param toRandomize list or table of items to randomize in place
 -- @param setterFnOrField function or function name or field that sets the value on the item
--- @param poolOptions optional table with additional parameters for controlling pool behavior consumable is
--- boolean if true the pool will be consumed and regenerated when empty default is false regenerate is
--- boolean if true the pool will be regenerated when empty default is false if the pool is consumable
--- and regenerate is false an error will be thrown if the pool is depleted and is tried to be used
+-- @param poolOptions optional table (consumesSelected, autoRegenerates, errorOnExhausted, constraintFn). See Pool.new
 -- @return the modified torandomize list
 function List:useToRandomize(toRandomize, setterFnOrField, poolOptions)
 	local targets = utils.asArray(toRandomize)
 	assert(#self.items > 0, "Cannot apply from empty list")
 
-	-- parse options
-	local consumable, regenerate = utils.parsePoolOptions(poolOptions)
-
-	-- for consumable pools create a working copy that well remove items from
-	-- non consumable pools just pick randomly each time
-	local workingPool
-	if consumable then
-		workingPool = utils.deepCopy(self.items)
-	end
+	local pool = Pool.new(self.items, poolOptions)
 
 	for i = 1, #targets do
-		local element
-		if consumable then
-			if #workingPool == 0 then
-				if regenerate then
-					-- refill the pool
-					workingPool = utils.deepCopy(self.items)
-				else
-					error("Pool depleted and regenerate is false")
-				end
-			end
-			element = utils.consumeRandomElement(workingPool)
-		else
-			element = utils.randomElement(self.items)
-		end
-
+		local element = pool:drawWithConstraint(targets[i])
 		utils.setValue(targets[i], setterFnOrField, element)
 	end
 

@@ -126,6 +126,65 @@ function utils.resolveMatcher(matcherFn)
 	return matcherFn
 end
 
+--- validate filterArray predicate input and return the keep function
+-- @param predicateFnOrField function(item) or field/method path string for utils.getValue
+-- @return function(item) truthy when the slot should be kept
+function utils._arrayFilterKeepsItem(predicateFnOrField)
+	local predicateType = type(predicateFnOrField)
+	assert(
+		predicateType == "function" or predicateType == "string",
+		"Expected function or string, got " .. predicateType
+	)
+	if predicateType == "string" then
+		return function(item)
+			return utils.getValue(item, predicateFnOrField)
+		end
+	end
+	return predicateFnOrField
+end
+
+--- return a new array with slots where the predicate is truthy
+-- does not modify tbl
+-- @param tbl array like table
+-- @param predicateFnOrField function(item) or field/method path string for utils.getValue
+-- @return new array with kept item refs in order
+function utils.filterArray(tbl, predicateFnOrField)
+	assert(type(tbl) == "table", "Expected table, got " .. type(tbl))
+	local keepsItem = utils._arrayFilterKeepsItem(predicateFnOrField)
+
+	local filtered = {}
+	for index = 1, #tbl do
+		local item = tbl[index]
+		if keepsItem(item) then
+			filtered[#filtered + 1] = item
+		end
+	end
+	return filtered
+end
+
+--- keep slots in an array like table where the predicate is truthy
+-- mutates tbl in place and compacts matching items to the front
+-- @param tbl array like table
+-- @param predicateFnOrField function(item) or field/method path string for utils.getValue
+function utils.filterArrayInPlace(tbl, predicateFnOrField)
+	assert(type(tbl) == "table", "Expected table, got " .. type(tbl))
+	local keepsItem = utils._arrayFilterKeepsItem(predicateFnOrField)
+
+	local writeIndex = 0
+	for readIndex = 1, #tbl do
+		local item = tbl[readIndex]
+		if keepsItem(item) then
+			writeIndex = writeIndex + 1
+			if writeIndex ~= readIndex then
+				tbl[writeIndex] = item
+			end
+		end
+	end
+	for index = writeIndex + 1, #tbl do
+		tbl[index] = nil
+	end
+end
+
 --- remove duplicate values from an array like table
 -- table values are compared with deepEqual
 -- @param tbl table to remove duplicates from
@@ -244,36 +303,35 @@ function utils.setSeed(seed)
 	math.randomseed(seed)
 end
 
---- get a random element from a table
+--- get or consume a random element from a table
 -- @param tbl table to select from
--- @return random element from the table
-function utils.randomElement(tbl)
+-- @param drawOptions optional table with
+--   consumesSelected boolean when true remove the pick from tbl. default false
+--   errorOnExhausted boolean when true error on empty tbl. default false (return nil)
+-- @return random element from the table, or nil when tbl is empty and errorOnExhausted is false
+function utils.randomElement(tbl, drawOptions)
 	assert(type(tbl) == "table", "Expected table, got " .. type(tbl))
-	assert(#tbl > 0, "Cannot get random element from empty table")
+	drawOptions = drawOptions or {}
 
-	return tbl[math.random(1, #tbl)]
-end
+	if #tbl == 0 then
+		if drawOptions.errorOnExhausted then
+			error("Cannot get random element from empty table")
+		end
+		return nil
+	end
 
---- remove and return a random element from a table
--- consumes from the table
--- modified in place
--- @param tbl table to consume from
--- @return random element from the table and removes it from tbl
-function utils.consumeRandomElement(tbl)
-	assert(type(tbl) == "table", "Expected table, got " .. type(tbl))
-	assert(#tbl > 0, "Cannot consume from empty table")
-
-	local index = math.random(1, #tbl)
-	local element = tbl[index]
-	table.remove(tbl, index)
+	local pick = math.random(1, #tbl)
+	local element = tbl[pick]
+	if drawOptions.consumesSelected then
+		table.remove(tbl, pick)
+	end
 	return element
 end
 
 --- split a colon-separated field or method path into segments
--- @local
 -- @param path string path with colon-separated segments
 -- @return array of path segments
-local function splitColonPath(path)
+function utils._splitColonPath(path)
 	local parts = {}
 	for part in string.gmatch(path, "[^:]+") do
 		table.insert(parts, part)
@@ -282,10 +340,9 @@ local function splitColonPath(path)
 end
 
 --- check whether a string path uses colon-separated segments
--- @local
 -- @param path string path to inspect
 -- @return true when the path contains a colon
-local function hasColonPath(path)
+function utils._hasColonPath(path)
 	return string.find(path, ":", 1, true) ~= nil
 end
 
@@ -332,9 +389,9 @@ function utils.getValue(object, getterFnOrField, ...)
 
 	local value
 	if getterType == "string" then
-		if hasColonPath(getterFnOrField) then
+		if utils._hasColonPath(getterFnOrField) then
 			value = object
-			for _, part in ipairs(splitColonPath(getterFnOrField)) do
+			for _, part in ipairs(utils._splitColonPath(getterFnOrField)) do
 				value = utils.getValue(value, part, ...)
 				if value == nil then
 					return nil
@@ -385,8 +442,8 @@ function utils.setValue(object, setterFnOrField, value, ...)
 	)
 
 	if setterType == "string" then
-		if hasColonPath(setterFnOrField) then
-			local parts = splitColonPath(setterFnOrField)
+		if utils._hasColonPath(setterFnOrField) then
+			local parts = utils._splitColonPath(setterFnOrField)
 			assert(#parts > 0, "Invalid empty colon-separated path")
 
 			local target = object
@@ -412,26 +469,6 @@ function utils.setValue(object, setterFnOrField, value, ...)
 		-- call the setter function
 		setterFnOrField(object, value, ...)
 	end
-end
-
---- parse pool options to support randomization functions
--- @param poolOptions optional table with consumable and regenerate flags
--- @return consumable bool and regenerate bool both default to false
-function utils.parsePoolOptions(poolOptions)
-	local consumable = false
-	local regenerate = false
-
-	if poolOptions ~= nil then
-		assert(type(poolOptions) == "table", "Options must be a table, got " .. type(poolOptions))
-		if poolOptions.consumable then
-			consumable = poolOptions.consumable
-		end
-		if poolOptions.regenerate then
-			regenerate = poolOptions.regenerate
-		end
-	end
-
-	return consumable, regenerate
 end
 
 return utils

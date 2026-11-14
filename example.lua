@@ -188,23 +188,15 @@ print()
 print("Incremental pool draws")
 print("---------------------------------")
 
-local shapePool = randomizer.pool({ "small", "medium", "large" }, { consumable = true, regenerate = true })
-local acceptedShape
-
-while acceptedShape == nil do
-	local candidate = shapePool:draw(true)
-	if candidate == nil then
-		break
-	end
-	if candidate ~= "large" then
-		acceptedShape = candidate
-	else
-		shapePool:removeFromPool(candidate, function(a, b)
-			return a == b
-		end)
-		print("  rejected:", candidate, "(removed from pool)")
-	end
-end
+local trialPool = randomizer.pool({ "small", "medium", "large" }, {
+	consumesSelected = true,
+	autoRegenerates = true,
+	errorOnExhausted = false,
+	constraintFn = function(_, candidate)
+		return candidate ~= "large"
+	end,
+})
+local acceptedShape = trialPool:drawWithConstraint({ id = 1 })
 
 print("Accepted shape:", acceptedShape or "(none)")
 print()
@@ -215,7 +207,7 @@ print("---------------------------")
 local namePools = randomizer.keyedPools({
 	fallback = { "NameA", "NameB" },
 	preferred = { "RareName" },
-}, { consumable = true, regenerate = false })
+}, { consumesSelected = true, autoRegenerates = false })
 
 local drawn, fromKey = namePools:drawFirstAvailable({ "preferred", "fallback" })
 print(string.format("Drew %s from key %s", drawn, fromKey))

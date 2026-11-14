@@ -41,7 +41,7 @@ describe("Functional Tests - Typical Use Cases", function()
 					entity.health = value
 				end
 				randomizer.randomize(entitiesModified, healthPool, setter, {
-					consumable = true,
+					consumesSelected = true,
 				})
 
 			-- verify all health values are from the original set and unique
@@ -105,34 +105,18 @@ describe("Functional Tests - Typical Use Cases", function()
 	end)
 
 	describe("Use Case 2b: Stateful pool for trial and error draws", function()
-		it("should draw shapes until one passes a filter then drop failed shapes from the pool", function()
-			randomizer.setSeed(11)
-
-			local shapes = randomizer.list({ "small", "medium", "large" })
-			local pool = randomizer.pool(shapes, { consumable = true, regenerate = true })
-			local accepted
-			local matcher = function(a, b)
-				return a == b
-			end
-
-			while accepted == nil do
-				local candidate = pool:draw(true)
-				if candidate == nil then
-					break
-				end
-				if candidate ~= "large" then
-					accepted = candidate
-				else
-					pool:removeFromPool(candidate, matcher)
-				end
-			end
+		it("should draw a shape that passes a filter via drawWithConstraint", function()
+			local pool = randomizer.pool({ "small", "medium", "large" }, {
+				consumesSelected = true,
+				autoRegenerates = true,
+				errorOnExhausted = false,
+				constraintFn = function(_, candidate)
+					return candidate ~= "large"
+				end,
+			})
+			local accepted = pool:drawWithConstraint({ id = 1 })
 
 			assert.is_true(accepted == "small" or accepted == "medium")
-			for _, pile in ipairs({ pool.pool, pool.used }) do
-				for _, value in ipairs(pile) do
-					assert.are_not.equal("large", value)
-				end
-			end
 		end)
 	end)
 
@@ -256,7 +240,7 @@ describe("Functional Tests - Typical Use Cases", function()
 
 		-- shuffle all stats together within rarity groups using consumable pools
 		randomizer.randomize(itemsModified, statTuplesPool, "rarity", setter, {
-			consumable = true,
+			consumesSelected = true,
 		})
 
 		-- verify all stat tuples are unique within each rarity consumable ensures no duplicates
@@ -342,7 +326,7 @@ describe("Functional Tests - Typical Use Cases", function()
 				entity.startingItem = itemName
 			end
 			randomizer.randomize(entities, itemNamesByRarity, "startingItemRarity", setter, {
-				consumable = true,
+				consumesSelected = true,
 			})
 
 			-- Verify all entities got items matching their assigned rarity

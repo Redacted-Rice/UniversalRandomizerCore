@@ -10,7 +10,7 @@ describe("KeyedPools", function()
 			local group = randomizer.KeyedPools.new({
 				a = { 1, 2 },
 				b = { 3 },
-			}, { consumable = true, regenerate = false })
+			}, { consumesSelected = true, autoRegenerates = false })
 
 			assert.are.equal(3, group:itemCount())
 		end)
@@ -20,7 +20,7 @@ describe("KeyedPools", function()
 				a = { 1, 2 },
 				b = { 3 },
 			})
-			local keyed = randomizer.KeyedPools.new(lists, { consumable = true, regenerate = false })
+			local keyed = randomizer.KeyedPools.new(lists, { consumesSelected = true, autoRegenerates = false })
 
 			assert.is_true(randomizer.isKeyedPools(keyed))
 			assert.are.equal(2, keyed:poolCount())
@@ -43,7 +43,7 @@ describe("KeyedPools", function()
 		it("should copy an existing keyed pools via new", function()
 			randomizer.setSeed(5)
 			local lists = randomizer.group({ k = { 1, 2 } })
-			local original = randomizer.KeyedPools.new(lists, { consumable = true, regenerate = false })
+			local original = randomizer.KeyedPools.new(lists, { consumesSelected = true, autoRegenerates = false })
 			original:get("k"):draw()
 			local copy = randomizer.KeyedPools.new(original)
 			assert.are_not.equal(original, copy)
@@ -54,7 +54,7 @@ describe("KeyedPools", function()
 		it("should decrease itemCount when pools draw", function()
 			randomizer.setSeed(1)
 			local lists = randomizer.group({ k = { 1, 2, 3 } })
-			local keyed = randomizer.KeyedPools.new(lists, { consumable = true, regenerate = false })
+			local keyed = randomizer.KeyedPools.new(lists, { consumesSelected = true, autoRegenerates = false })
 			keyed:get("k"):draw()
 			assert.are.equal(2, keyed:itemCount())
 		end)
@@ -66,7 +66,7 @@ describe("KeyedPools", function()
 			local keyed = randomizer.KeyedPools.new({
 				a = { 1, 2 },
 				b = { 3 },
-			}, { consumable = true, regenerate = false })
+			}, { consumesSelected = true, autoRegenerates = false })
 
 			assert.are.equal(3, keyed:remainingForKeys({ "a", "b" }))
 			assert.are.equal(0, keyed:remainingForKey("missing"))
@@ -77,7 +77,7 @@ describe("KeyedPools", function()
 		end)
 
 		it("should return nil when drawFirstAvailable finds no items", function()
-			local keyed = randomizer.KeyedPools.new({ k = { 1 } }, { consumable = true, regenerate = false })
+			local keyed = randomizer.KeyedPools.new({ k = { 1 } }, { consumesSelected = true, autoRegenerates = false })
 			keyed:get("k"):draw()
 			local value, key = keyed:drawFirstAvailable({ "k" })
 			assert.is_nil(value)
@@ -86,7 +86,7 @@ describe("KeyedPools", function()
 
 		it("should drawFirstAvailable when regenerate leaves items in used only", function()
 			randomizer.setSeed(7)
-			local keyed = randomizer.KeyedPools.new({ k = { 1, 2 } }, { consumable = true, regenerate = true })
+			local keyed = randomizer.KeyedPools.new({ k = { 1, 2 } }, { consumesSelected = true, autoRegenerates = true })
 			keyed:get("k"):draw()
 			keyed:get("k"):draw()
 			assert.are.equal(0, keyed:get("k"):remainingCount())
@@ -96,7 +96,7 @@ describe("KeyedPools", function()
 		end)
 
 		it("should pick firstKeyWithCapacity and tryReserveKey with reservations", function()
-			local keyed = randomizer.KeyedPools.new({ k = { 1 } }, { consumable = true })
+			local keyed = randomizer.KeyedPools.new({ k = { 1 } }, { consumesSelected = true })
 			local reserved = {}
 			local temp = {}
 			assert.are.equal("k", keyed:firstKeyWithCapacity({ "k" }, reserved, temp))
@@ -106,7 +106,7 @@ describe("KeyedPools", function()
 		end)
 
 		it("should allow nil tempReserved without tracking the reservation", function()
-			local keyed = randomizer.KeyedPools.new({ k = { 1 } }, { consumable = true })
+			local keyed = randomizer.KeyedPools.new({ k = { 1 } }, { consumesSelected = true })
 			assert.are.equal("k", keyed:tryReserveKey({ "k" }, {}, nil))
 			assert.are.equal("k", keyed:tryReserveKey({ "k" }, {}, nil))
 		end)
@@ -137,7 +137,7 @@ describe("KeyedPools", function()
 	describe("backedBy", function()
 		it("should share array storage with caller tables", function()
 			local a = { 1, 2 }
-			local keyed = randomizer.KeyedPools.backedBy({ k = a }, { consumable = true })
+			local keyed = randomizer.KeyedPools.backedBy({ k = a }, { consumesSelected = true })
 			assert.are.equal(a, keyed:get("k").pool)
 			keyed:get("k"):draw()
 			assert.are.equal(1, #a)
