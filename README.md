@@ -165,7 +165,7 @@ A **Pool** holds choices you draw from one at a time. Use it when batch `useToRa
 **When to use a Pool instead of a List pool:**
 - You need **`draw()`** in a loop rather than assigning every target in one call
 - You want to **`removeFromPool`** after a failed attempt
-- You care about **consumable** state split between the working pile (`pool`) and drawn pile (`used`)
+- You care about **consumesSelected** state split between the working pile (`pool`) and drawn pile (`used`)
 
 Example: draw random shapes until one passes a filter, and drop rejected shapes from the pool so they are not picked again.
 
@@ -174,7 +174,7 @@ Example: draw random shapes until one passes a filter, and drop rejected shapes 
 A **KeyedPools** is a map of **Pool** instances under keys. Build one from a plain table of arrays, or from a **Group** (each keyed list becomes its own Pool).
 
 **When to use KeyedPools:**
-- Several consumable pools keyed by category (type, stage, rarity bucket, etc.)
+- Several keyed pools with `consumesSelected` keyed by category (type, stage, rarity bucket, etc.)
 - Priority-ordered fallback: try pool `b`, then `a`, with **`drawFirstAvailable({ "b", "a" })`**
 - Planning how many names are left before committing: **`remainingForKeys`**, **`firstKeyWithCapacity`**, **`tryReserveKey`** (soft reservations, no state change on the pools)
 
@@ -244,13 +244,13 @@ String getters and setters passed to `select`, `groupBy`, `useToRandomize`, and 
 
 **`poolOptions`** - defines how the pool behaves
 
-- **`consumable`** - whether the pool is consumable or not. defaults to non-consumable. If true, when items are selected, they're removed from the working pool (and stored in a backup if regenerate is used). If false, they stay available each draw.
-    - **consumable** pools are like a bag where you pull an item from it and don't put it back
-    - **non-consumable** pools can be thought of like rolling dice. If you roll a value once, you can still roll it again.
+- **`consumesSelected`** - when true, each selected item is removed from the working pool (and tracked in `used` when auto-regenerating). When false, items stay in the working pool for every draw (sampling with replacement).
 
-- **`regenerate`** - only applicable for consumable pools. If true, when the working pool is empty and you try to draw again, drawing continues instead of erroring. If false, an exhausted pool errors (or `draw(true)` returns `nil` on a **Pool**).
-    - **regenerating** pools are like a bag and once you draw all the items out of the bag you then put them all back in and continue drawing. This can be used to ensure a more even distribution of values.
-    - **non-regenerating** pools are like if you took everyone's phone, threw it in a bag and then everyone took one out. There should be no extras as you're just reassigning/shuffling items. In this case the expectation is that the pool size is the same as the number of items being randomized.
+- **`autoRegenerates`** - when `consumesSelected` is true, refills the working pool from `used` when it is empty so drawing can continue. If false, an exhausted pool errors or returns nil depending on `errorOnExhausted`.
+
+- **`errorOnExhausted`** - on Pool `draw`, when the pool cannot draw and this is false, returns nil. When true, raises an error instead. Can be useful for retry vs abort behavior
+
+- **`constraintFn`** - optional `function(target, candidate)` for `drawWithConstraint` / `useToRandomize`. If the function returns falsey, it will not be returned. Only truthy returns will be returned or nil/error if no truthy values were found. Anything rejected stays in the pool
 
 ## LDoc Generated Docs
 

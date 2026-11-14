@@ -10,7 +10,7 @@ KeyedPools.__index = KeyedPools
 
 --- build keyed pools from a group or a map of pools/lists/array-like tables
 -- @param poolsMap Group or map of pools/lists/array-like tables
--- @param poolOptions optional consumable and regenerate flags
+-- @param poolOptions optional Pool flags (consumesSelected, autoRegenerates, errorOnExhausted, constraintFn)
 -- @return new KeyedPools
 function KeyedPools.new(poolsMap, poolOptions)
 	assert(type(poolsMap) == "table", "Expected table, got " .. type(poolsMap))
@@ -151,7 +151,7 @@ function KeyedPools:drawFirstAvailable(keys)
 	for _, key in ipairs(keys) do
 		local pool = self:get(key)
 		if pool ~= nil and pool:canDraw() then
-			local value = pool:draw(true)
+			local value = pool:draw()
 			if value ~= nil then
 				return value, key
 			end

@@ -4,6 +4,7 @@
 
 local utils = require("randomizer.utils")
 local List = require("randomizer.list")
+local Pool = require("randomizer.pool")
 
 --- A Group object to support coordinated randomization across lists.
 -- Provides keyed access to list pools.
@@ -11,11 +12,10 @@ local Group = {}
 Group.__index = Group
 
 --- helper to convert a list or table to a list object
--- @local
 -- @param list list or table to convert
 -- @param key optional key for better error messages
 -- @return list object
-local function toListObject(list, key)
+function Group._toListObject(list, key)
 	if utils.isList(list) then
 		return list
 	elseif type(list) == "table" then
@@ -54,7 +54,7 @@ function Group.new(listsMap, keyOrder)
 		if listsMap[key] == nil or self.lists[key] ~= nil then
 			return
 		end
-		self.lists[key] = toListObject(listsMap[key], key)
+		self.lists[key] = Group._toListObject(listsMap[key], key)
 		table.insert(self.keyOrder, key)
 	end
 
@@ -140,7 +140,7 @@ function Group:applyToEachList(methodName, ...)
 		local list = self.lists[key]
 		local method = list[methodName]
 		assert(type(method) == "function", "List has no method '" .. methodName .. "'")
-		applied[key] = toListObject(method(list, table.unpack(args, 1, args.n)), key)
+		applied[key] = Group._toListObject(method(list, table.unpack(args, 1, args.n)), key)
 		table.insert(keyOrder, key)
 	end
 
@@ -309,7 +309,7 @@ function Group:add(key, list)
 	if self.lists[key] == nil then
 		table.insert(self.keyOrder, key)
 	end
-	self.lists[key] = toListObject(list, key)
+	self.lists[key] = Group._toListObject(list, key)
 	return self
 end
 
@@ -365,24 +365,15 @@ end
 -- @param selectorFnOrField function or function name or field that gets the key to use for the group
 -- to get the list to use for the item
 -- @param setterFnOrField function or function name or field that sets the value on the item
--- @param poolOptions optional table with additional parameters for controlling pool behavior consumable
--- is boolean if true the pool will be consumed and regenerated when empty default is false regenerate
--- is boolean if true the pool will be regenerated when empty default is false if the pool is consumable
--- and regenerate is false an error will be thrown if the pool is depleted and is tried to be used
+-- @param poolOptions optional table (consumesSelected, autoRegenerates, errorOnExhausted, constraintFn). See Pool.new
 -- @return the modified torandomize list
 function Group:useToRandomize(toRandomize, selectorFnOrField, setterFnOrField, poolOptions)
 	local targets = utils.asArray(toRandomize)
 	-- type validation for selectorfnorfield and setterfnorfield is handled by utils getvalue
 
-	-- parse options
-	local consumable, regenerate = utils.parsePoolOptions(poolOptions)
-
-	-- for consumable pools create working copies for each group
-	local workingPools = {}
-	if consumable then
-		for _, key in ipairs(self.keyOrder) do
-			workingPools[key] = utils.deepCopy(self.lists[key].items)
-		end
+	local pools = {}
+	for _, key in ipairs(self.keyOrder) do
+		pools[key] = Pool.new(self.lists[key].items, poolOptions)
 	end
 
 	for i, item in ipairs(targets) do
@@ -398,23 +389,7 @@ function Group:useToRandomize(toRandomize, selectorFnOrField, setterFnOrField, p
 			error("List for key '" .. tostring(key) .. "' is empty")
 		end
 
-		local element
-		if consumable then
-			local pool = workingPools[key]
-			if #pool == 0 then
-				if regenerate then
-					-- refill this groups pool
-					workingPools[key] = utils.deepCopy(list.items)
-					pool = workingPools[key]
-				else
-					error("Pool for key '" .. tostring(key) .. "' depleted and regenerate is false")
-				end
-			end
-			element = utils.consumeRandomElement(pool)
-		else
-			element = utils.randomElement(list.items)
-		end
-
+		local element = pools[key]:drawWithConstraint(targets[i])
 		utils.setValue(targets[i], setterFnOrField, element)
 	end
 

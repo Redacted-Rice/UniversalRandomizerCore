@@ -915,7 +915,7 @@ describe("List Module", function()
 			randomizer.setSeed(42)
 			local pool = randomizer.list({ "A", "B", "C" })
 			local target = { { val = 0 }, { val = 0 }, { val = 0 } }
-			pool:useToRandomize(target, "val", { consumable = true, regenerate = false })
+			pool:useToRandomize(target, "val", { consumesSelected = true, autoRegenerates = false })
 			-- target should be a permutation of the pool with no duplicates
 			local values = { target[1].val, target[2].val, target[3].val }
 			table.sort(values)
@@ -927,7 +927,11 @@ describe("List Module", function()
 			local pool = randomizer.list({ 1, 2 })
 			local target = { { val = 0 }, { val = 0 }, { val = 0 } }
 			assert.has_error(function()
-				pool:useToRandomize(target, "val", { consumable = true, regenerate = false })
+				pool:useToRandomize(target, "val", {
+					consumesSelected = true,
+					autoRegenerates = false,
+					errorOnExhausted = true,
+				})
 			end)
 		end)
 
@@ -935,7 +939,7 @@ describe("List Module", function()
 			randomizer.setSeed(7)
 			local pool = randomizer.list({ 1, 2 })
 			local target = { { val = 0 }, { val = 0 }, { val = 0 }, { val = 0 } }
-			pool:useToRandomize(target, "val", { consumable = true, regenerate = true })
+			pool:useToRandomize(target, "val", { consumesSelected = true, autoRegenerates = true })
 			-- All values must be from original pool
 			for _, obj in ipairs(target) do
 				assert.is_true(obj.val == 1 or obj.val == 2)
@@ -946,10 +950,31 @@ describe("List Module", function()
 			randomizer.setSeed(13)
 			local objs = { { name = "" }, { name = "" }, { name = "" } }
 			local pool = randomizer.list({ "X", "Y", "Z" })
-			pool:useToRandomize(objs, "name", { consumable = true, regenerate = false })
+			pool:useToRandomize(objs, "name", { consumesSelected = true, autoRegenerates = false })
 			local names = { objs[1].name, objs[2].name, objs[3].name }
 			table.sort(names)
 			assert.are.same({ "X", "Y", "Z" }, names)
+		end)
+	end)
+
+	describe("constraintFn", function()
+		it("should only assign pool values that pass constraintFn", function()
+			randomizer.setSeed(42)
+			local pool = randomizer.list({ "A", "B", "C", "D" })
+			local targets = {
+				{ id = 1, slot = "A", letter = "" },
+				{ id = 2, slot = "B", letter = "" },
+			}
+
+			pool:useToRandomize(targets, "letter", {
+				constraintFn = function(target, value)
+					return value ~= target.slot
+				end,
+			})
+
+			for _, target in ipairs(targets) do
+				assert.are_not.equal(target.slot, target.letter)
+			end
 		end)
 	end)
 
