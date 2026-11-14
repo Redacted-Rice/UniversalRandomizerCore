@@ -204,6 +204,26 @@ describe("Pool", function()
 			assert.is_true(drawn == "A" or drawn == "C")
 			assert.are.equal(3, pool:remainingCount())
 		end)
+
+		it("should drop constraint failures from the pool when constraintRemovesFailures is true", function()
+			randomizer.setSeed(1)
+			local target = { banned = "B" }
+			local pool = randomizer.pool({ "B", "B", "C" }, {
+				consumesSelected = true,
+				autoRegenerates = true,
+				constraintRemovesFailures = true,
+				constraintFn = function(t, value)
+					return value ~= t.banned
+				end,
+			})
+
+			local drawn = pool:drawWithConstraint(target)
+
+			assert.are.equal("C", drawn)
+			for _, item in ipairs(pool.pool) do
+				assert.are_not.equal("B", item)
+			end
+		end)
 	end)
 
 	describe("canDraw", function()

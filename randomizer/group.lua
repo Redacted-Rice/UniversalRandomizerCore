@@ -365,7 +365,7 @@ end
 -- @param selectorFnOrField function or function name or field that gets the key to use for the group
 -- to get the list to use for the item
 -- @param setterFnOrField function or function name or field that sets the value on the item
--- @param poolOptions optional table (consumesSelected, autoRegenerates, errorOnExhausted, constraintFn). See Pool.new
+-- @param poolOptions optional flags. See Pool.new
 -- @return the modified torandomize list
 function Group:useToRandomize(toRandomize, selectorFnOrField, setterFnOrField, poolOptions)
 	local targets = utils.asArray(toRandomize)

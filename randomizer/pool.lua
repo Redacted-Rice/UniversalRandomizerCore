@@ -10,8 +10,12 @@ Pool.__index = Pool
 
 --- Creates a pool from a list or array table, copying items so the source is not modified
 -- @param list List or array table of choices
--- TODO: List out the options here
--- @param poolOptions optional table (consumesSelected, autoRegenerates, errorOnExhausted, constraintFn)
+-- @param poolOptions optional table (see README **poolOptions** for more detail):
+--   consumesSelected remove accepted draws from the working pool
+--   autoRegenerates refill the working pool from used when empty (uses consumesSelected)
+--   errorOnExhausted when true, draw errors on exhaustion. When false, draw returns nil
+--   constraintFn function(target, candidate). Truthy candidates only will be returned by drawWithConstraint
+--   constraintRemovesFailures when true, values rejected by constraintFn stay removed from the pool
 -- @return new Pool instance
 function Pool.new(list, poolOptions)
 	assert(type(list) == "table", "Expected table or List, got " .. type(list))
@@ -24,7 +28,7 @@ end
 
 --- deep copy an existing pool including pool and used arrays
 -- @param source Pool to copy
--- @param poolOptions optional table (consumesSelected, autoRegenerates, errorOnExhausted, constraintFn). See Pool.new. when omitted, copies option fields from source
+-- @param poolOptions optional flags. See Pool.new. When omitted, copies option fields from source
 -- @return new Pool instance
 function Pool.copy(source, poolOptions)
 	assert(utils.isPool(source), "Expected Pool, got " .. type(source))
@@ -45,7 +49,7 @@ end
 --- Transfer ownership of an array-like table to the pool. Does not copy. Table should not continue to be used
 -- after transferring ownership
 -- @param array array-like table to back the working pool
--- @param poolOptions optional table (consumesSelected, autoRegenerates, errorOnExhausted, constraintFn). See Pool.new
+-- @param poolOptions optional flags. See Pool.new
 -- @return new Pool instance
 function Pool.backedBy(array, poolOptions)
 	assert(type(array) == "table", "Expected table, got " .. type(array))
@@ -73,6 +77,7 @@ function Pool:_setPoolOptions(poolOptions)
 	self.autoRegenerates = poolOptions.autoRegenerates or false
 	self.errorOnExhausted = poolOptions.errorOnExhausted or false
 	self.constraintFn = poolOptions.constraintFn or nil
+	self.constraintRemovesFailures = poolOptions.constraintRemovesFailures or false
 end
 
 --- whether draw would succeed without treating exhaustion as an error
@@ -161,8 +166,9 @@ function Pool:_pickConstrained(target)
 	end
 
 	-- Reapply the items to the pool if needed before returning
+	local dest = self.constraintRemovesFailures and self.pool or self.used
 	for _, item in ipairs(tried) do
-		table.insert(self.pool, item)
+		table.insert(dest, item)
 	end
 
 	-- if its consumable, add it to the used pile
@@ -178,7 +184,7 @@ function Pool:_pickConstrained(target)
 end
 
 --- draw one random element that passes the pools constraintFn for target
--- rejected options stay in the working pool. uses constraint fallback when regenerate is on
+-- rejected options stay in the working pool unless constraintRemovesFailures is true (see Pool.new)
 -- @param target object being randomized
 -- @return drawn element
 function Pool:drawWithConstraint(target)

@@ -10,7 +10,7 @@ KeyedPools.__index = KeyedPools
 
 --- build keyed pools from a group or a map of pools/lists/array-like tables
 -- @param poolsMap Group or map of pools/lists/array-like tables
--- @param poolOptions optional Pool flags (consumesSelected, autoRegenerates, errorOnExhausted, constraintFn)
+-- @param poolOptions optional flags. See Pool.new
 -- @return new KeyedPools
 function KeyedPools.new(poolsMap, poolOptions)
 	assert(type(poolsMap) == "table", "Expected table, got " .. type(poolsMap))
@@ -34,7 +34,7 @@ end
 
 --- Deep copy an existing keyed pools including each pool state
 -- @param source KeyedPools to copy
--- @param poolOptions optional flags passed to Pool.copy for every keyed pool. when omitted each pool keeps its flags
+-- @param poolOptions optional flags. See Pool.new. When omitted each pool keeps its flags
 -- @return new KeyedPools
 function KeyedPools.copy(source, poolOptions)
 	assert(utils.isKeyedPools(source), "Expected KeyedPools, got " .. type(source))
@@ -53,7 +53,7 @@ end
 --- Transfer ownership of map and all its pool or array-like tables values to the keyedPools. Does not copy.
 -- Map and its values should not continue to be used after transferring ownership.
 -- @param poolsMap table keyed by Pool instances or array-like tables
--- @param poolOptions optional flags when coercing arrays to pools
+-- @param poolOptions optional flags. See Pool.new
 -- @return new KeyedPools
 function KeyedPools.backedBy(poolsMap, poolOptions)
 	assert(type(poolsMap) == "table", "Expected table, got " .. type(poolsMap))
