@@ -166,7 +166,7 @@ function Pool:_pickConstrained(target)
 	end
 
 	-- Reapply the items to the pool if needed before returning
-	local dest = self.constraintRemovesFailures and self.pool or self.used
+	local dest = self.constraintRemovesFailures and self.used or self.pool
 	for _, item in ipairs(tried) do
 		table.insert(dest, item)
 	end
@@ -186,7 +186,7 @@ end
 --- draw one random element that passes the pools constraintFn for target
 -- rejected options stay in the working pool unless constraintRemovesFailures is true (see Pool.new)
 -- @param target object being randomized
--- @return drawn element
+-- @return drawn element or nil when nothing passes
 function Pool:drawWithConstraint(target)
 	if self.constraintFn == nil then
 		return self:draw()
@@ -196,11 +196,9 @@ function Pool:drawWithConstraint(target)
 	if element == nil and self.autoRegenerates then
 		self:regenerate()
 		element = self:_pickConstrained(target)
-		if element == nil then
-			element = self:draw()
-		end
-	elseif element == nil then
-		error("No acceptable value in pool for target")
+	end
+	if element == nil and self.errorOnExhausted then
+		error("Pool constraint could not be satisfied")
 	end
 	return element
 end

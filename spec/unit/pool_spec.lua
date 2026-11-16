@@ -224,6 +224,182 @@ describe("Pool", function()
 				assert.are_not.equal("B", item)
 			end
 		end)
+
+		it("should handle nil constraintFn", function()
+			randomizer.setSeed(1)
+			local pool = randomizer.pool({ 9, 10 })
+			local drawn = pool:drawWithConstraint({ id = 1 })
+			assert.is_true(drawn == 9 or drawn == 10)
+			assert.are.equal(2, pool:remainingCount())
+			assert.are.equal(0, pool:usedCount())
+		end)
+
+		it("should return nil or error when the pool is empty after constraint failures based on errorOnExhausted", function()
+			local pool = randomizer.pool({ 1, 2, 3 }, {
+				consumesSelected = true,
+				autoRegenerates = false,
+				constraintRemovesFailures = false,
+				errorOnExhausted = false,
+				constraintFn = function()
+					return false
+				end,
+			})
+
+			assert.is_nil(pool:drawWithConstraint({ id = 1 }))
+
+			pool.errorOnExhausted = true
+			assert.has_error(function()
+				pool:drawWithConstraint({ id = 1 })
+			end)
+		end)
+
+		it("should return rejected draws to the working if constraintRemovesFailures is false", function()
+			randomizer.setSeed(42)
+			local pool = randomizer.pool({ 1, 2, 3 }, {
+				consumesSelected = true,
+				constraintRemovesFailures = false,
+				constraintFn = function(_, value)
+					return value == 3
+				end,
+			})
+
+			local drawn = pool:drawWithConstraint({ id = 1 })
+
+			assert.are.equal(3, drawn)
+			assert.are.equal(2, pool:remainingCount())
+			assert.are.equal(1, pool:usedCount())
+			for _, value in ipairs(pool.pool) do
+				assert.are_not.equal(3, value)
+			end
+		end)
+
+		it("should return rejected draws to the used pool if constraintRemovesFailures is true", function()
+			randomizer.setSeed(42)
+			local pool = randomizer.pool({ 1, 2, 3 }, {
+				consumesSelected = true,
+				constraintRemovesFailures = true,
+				constraintFn = function(_, value)
+					return value == 3
+				end,
+			})
+
+			local drawn = pool:drawWithConstraint({ id = 1 })
+
+			assert.are.equal(3, drawn)
+			assert.are.equal(1, pool:remainingCount())
+			assert.are_not.equal(3, pool.pool[1])
+			assert.are.equal(2, pool:usedCount())
+			local inUsed = {}
+			for _, value in ipairs(pool.used) do
+				inUsed[value] = true
+			end
+			assert.is_true(inUsed[3])
+		end)
+
+		it("should not return the selected value to the working pool when consumesSelected is true", function()
+			randomizer.setSeed(1)
+			local pool = randomizer.pool({ "A", "B" }, {
+				consumesSelected = true,
+				constraintFn = function()
+					return true
+				end,
+			})
+
+			local drawn = pool:drawWithConstraint({ id = 1 })
+
+			assert.is_not_nil(drawn)
+			for _, value in ipairs(pool.pool) do
+				assert.are_not.equal(drawn, value)
+			end
+			assert.are.equal(1, pool:usedCount())
+			assert.are.equal(drawn, pool.used[1])
+		end)
+
+		it("should return the selected value to the working pool when consumesSelected is false even if constraintRemovesFailures is true", function()
+			randomizer.setSeed(3)
+			local pool = randomizer.pool({ "A", "B" }, {
+				consumesSelected = false,
+				constraintRemovesFailures = true,
+				constraintFn = function(_, value)
+					return value == "B"
+				end,
+			})
+
+			local drawn = pool:drawWithConstraint({ id = 1 })
+
+			assert.are.equal("B", drawn)
+			assert.are.equal(1, pool:remainingCount())
+			assert.are.equal("B", pool.pool[1])
+			assert.are.equal(1, pool:usedCount())
+			assert.are.equal("A", pool.used[1])
+		end)
+
+		it("should regenerate from used when the working pool is empty and autoRegenerates is true", function()
+			randomizer.setSeed(1)
+			local pool = randomizer.pool({ 11 }, {
+				consumesSelected = true,
+				autoRegenerates = true,
+				constraintFn = function(_, value)
+					return value == 11
+				end,
+			})
+			pool:draw()
+			assert.are.equal(0, pool:remainingCount())
+			assert.are.equal(1, pool:usedCount())
+
+			local drawn = pool:drawWithConstraint({ id = 1 })
+
+			assert.are.equal(11, drawn)
+			assert.are.equal(0, pool:remainingCount())
+			assert.are.equal(1, pool:usedCount())
+		end)
+
+		it("should return nil when autoRegenerates cannot satisfy the constraint after regen", function()
+			local pool = randomizer.pool({ "bad" }, {
+				consumesSelected = true,
+				autoRegenerates = true,
+				constraintRemovesFailures = true,
+				constraintFn = function()
+					return false
+				end,
+			})
+
+			assert.is_nil(pool:drawWithConstraint({ id = 1 }))
+			assert.are.equal(0, pool:remainingCount())
+			assert.are.equal(1, pool:usedCount())
+		end)
+	end)
+
+	describe("regenerate", function()
+		it("should refill the working pool from used when called manually", function()
+			local pool = randomizer.pool({ "bad" }, {
+				consumesSelected = true,
+				autoRegenerates = false,
+				constraintRemovesFailures = true,
+				constraintFn = function()
+					return false
+				end,
+			})
+
+			assert.is_nil(pool:drawWithConstraint({ id = 1 }))
+			assert.are.equal(0, pool:remainingCount())
+			assert.are.equal(1, pool:usedCount())
+
+			pool:regenerate()
+
+			assert.are.equal(1, pool:remainingCount())
+			assert.are.equal(0, pool:usedCount())
+			assert.are.equal("bad", pool.pool[1])
+		end)
+
+		it("should append used into a non empty working pool", function()
+			local pool = randomizer.pool({ "a" }, { consumesSelected = true, autoRegenerates = false })
+			pool:draw()
+			pool.pool = { "b" }
+			pool:regenerate()
+			assert.are.same({ "b", "a" }, pool.pool)
+			assert.are.equal(0, pool:usedCount())
+		end)
 	end)
 
 	describe("canDraw", function()
