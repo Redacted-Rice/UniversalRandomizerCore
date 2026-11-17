@@ -89,7 +89,7 @@ function KeyedPools:get(key)
 end
 
 --- working pool size for one key, or 0 when missing
--- uses remainingCount only, not canDraw. intended for regenerate = false capacity checks
+-- uses remainingCount only, not canDraw. intended for autoRegenerates = false capacity checks
 -- @param key pool key
 -- @return remainingCount for that pool
 function KeyedPools:remainingForKey(key)
@@ -101,7 +101,7 @@ function KeyedPools:remainingForKey(key)
 end
 
 --- sum remainingForKey across keys in order
--- counts working pool sizes only. see remainingForKey for regenerate behavior
+-- counts working pool sizes only. see remainingForKey for autoRegenerates behavior
 -- @param keys array of pool keys
 -- @return total remaining draws
 function KeyedPools:remainingForKeys(keys)
@@ -114,7 +114,7 @@ end
 
 --- first key in keys with at least one unreserved draw left
 -- Note this is "soft" reservations and does not change the objects state
--- uses remainingCount, so regenerate pools may report no capacity while canDraw is still true
+-- uses remainingCount, so autoRegenerating pools may report no capacity while canDraw is still true
 -- @param keys array of pool keys in priority order
 -- @param reservedCounts map of key to committed reservation count
 -- @param tempReserved optional map of uncommitted reservations for this attempt

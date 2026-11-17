@@ -244,7 +244,7 @@ String getters and setters passed to `select`, `groupBy`, `useToRandomize`, and 
 
 **`poolOptions`** - defines how the pool behaves. All options default to false/nil unless otherwise specified
 
-- **`consumesSelected`** - when true, each selected item is removed from the working pool (and tracked in `used` when auto-regenerating). When false, items stay in the working pool for every draw (sampling with replacement).
+- **`consumesSelected`** - when true, each selected item is removed from the working pool and appended to `used`. When false, items stay in the working pool for every draw (sampling with replacement). Note: The `used` pile can also hold values removed by `constraintRemovesFailures` even when `consumesSelected` is false whgch can then be restored by `regenerate()`/`autoRegenerates`.
 
 - **`autoRegenerates`** - when `consumesSelected` is true, refills the working pool from `used` when it is empty so drawing can continue. If false, an exhausted pool errors or returns nil depending on `errorOnExhausted`.
 
@@ -252,7 +252,7 @@ String getters and setters passed to `select`, `groupBy`, `useToRandomize`, and 
 
 - **`constraintFn`** - optional `function(target, candidate)` for `drawWithConstraint` / `useToRandomize`. If the function returns falsey, the candidate is not accepted. Only truthy returns are chosen and if there are none, it will return nil/error. Rejected candidates stay in the working pool unless `constraintRemovesFailures` is set.
 
-- **`constraintRemovesFailures`** - when false, constraint rejections are returned to the working pool. When true, rejections stay removed from the working pool and are put in the used pool instead. These will be readded when the pool is regenerated.
+- **`constraintRemovesFailures`** - when false, rejected candidates stay in the working pool (order preserved). When true, rejected candidates are removed from the working pool and appended to `used` so they are not tried again until the pool regenerates. The winning candidate stays in the working pool when `consumesSelected` is false (sampling with replacement). Only failed values are moved to `used` in that case.
 
 ## LDoc Generated Docs
 
