@@ -110,6 +110,85 @@ describe("KeyedPools", function()
 			assert.are.equal("k", keyed:tryReserveKey({ "k" }, {}, nil))
 			assert.are.equal("k", keyed:tryReserveKey({ "k" }, {}, nil))
 		end)
+
+		describe("drawFirstAvailable constraints", function()
+			it("should pass the target table into each pools drawWithConstraint", function()
+				randomizer.setSeed(1)
+				local keyed = randomizer.KeyedPools.new({
+					a = { 1 },
+					b = { 10, 11 },
+				}, { consumesSelected = true, autoRegenerates = false })
+				local poolB = keyed:get("b")
+				local seenTarget = nil
+				poolB.constraintFn = function(target, value)
+					seenTarget = target
+					return target.pick == value
+				end
+
+				local target = { pick = 10 }
+				local value, key = keyed:drawFirstAvailable({ "b" }, target)
+
+				assert.are.equal("b", key)
+				assert.are.equal(10, value)
+				assert.are.same(target, seenTarget)
+			end)
+
+			it("should use an empty target when drawFirstAvailable gets no target arg", function()
+				randomizer.setSeed(1)
+				local keyed = randomizer.KeyedPools.new({ k = { 1 } }, {})
+				local pool = keyed:get("k")
+				local seenTarget = nil
+				pool.constraintFn = function(target)
+					seenTarget = target
+					return true
+				end
+
+				local value, key = keyed:drawFirstAvailable({ "k" })
+
+				assert.are.equal("k", key)
+				assert.are.equal(1, value)
+				assert.is_true(type(seenTarget) == "table")
+				assert.is_nil(seenTarget.pick)
+			end)
+
+			it("should fall through to the next key when the first pool cannot satisfy the constraint", function()
+				randomizer.setSeed(1)
+				local keyed = randomizer.KeyedPools.new({
+					a = { 1, 2 },
+					b = { 10 },
+				}, { consumesSelected = true, autoRegenerates = false })
+				local poolA = keyed:get("a")
+				poolA.constraintRemovesFailures = true
+				poolA.constraintFn = function(_, value)
+					return value > 5
+				end
+
+				local value, key = keyed:drawFirstAvailable({ "a", "b" }, {})
+
+				assert.are.equal("b", key)
+				assert.are.equal(10, value)
+				assert.are.equal(0, poolA:remainingCount())
+				assert.are.equal(2, poolA:usedCount())
+			end)
+
+			it("should return nil when every prioritized pool rejects the target", function()
+				randomizer.setSeed(1)
+				local keyed = randomizer.KeyedPools.new({
+					a = { 1 },
+					b = { 2 },
+				}, { consumesSelected = true, autoRegenerates = false })
+				local rejectAll = function()
+					return false
+				end
+				keyed:get("a").constraintFn = rejectAll
+				keyed:get("b").constraintFn = rejectAll
+
+				local value, key = keyed:drawFirstAvailable({ "a", "b" }, { pick = 99 })
+
+				assert.is_nil(value)
+				assert.is_nil(key)
+			end)
+		end)
 	end)
 
 	describe("__pairs", function()
