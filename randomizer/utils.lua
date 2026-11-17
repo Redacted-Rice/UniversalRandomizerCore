@@ -308,7 +308,7 @@ end
 -- @param drawOptions optional table with
 --   consumesSelected boolean when true remove the pick from tbl. default false
 --   errorOnExhausted boolean when true error on empty tbl. default false (return nil)
--- @return random element from the table, or nil when tbl is empty and errorOnExhausted is false
+-- @return random element from the table and its 1-based index, or nil when tbl is empty and errorOnExhausted is false
 function utils.randomElement(tbl, drawOptions)
 	assert(type(tbl) == "table", "Expected table, got " .. type(tbl))
 	drawOptions = drawOptions or {}
@@ -325,7 +325,7 @@ function utils.randomElement(tbl, drawOptions)
 	if drawOptions.consumesSelected then
 		table.remove(tbl, pick)
 	end
-	return element
+	return element, pick
 end
 
 --- split a colon-separated field or method path into segments

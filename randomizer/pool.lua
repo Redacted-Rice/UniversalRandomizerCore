@@ -139,48 +139,68 @@ function Pool:draw()
 	return choice
 end
 
---- pick from the working pool for target using the pools constraintFn
+--- 1 based indexes into pool left to try for this constrained draw
+function Pool:_unpickedPoolIndexes()
+	local indexes = {}
+	for i = 1, #self.pool do
+		indexes[i] = i
+	end
+	return indexes
+end
+
+--- remove indexes from the working pool high to low and append each to used
+function Pool:removeIndexesHighToLow(indexes)
+	if #indexes == 0 then
+		return
+	end
+	table.sort(indexes, function(a, b)
+		return a > b
+	end)
+	for _, index in ipairs(indexes) do
+		local item = self.pool[index]
+		table.remove(self.pool, index)
+		table.insert(self.used, item)
+	end
+end
+
+--- Pick from the working pool for target using the pools constraintFn
+-- probes by pool index so skipped items keep their order. Each index is tried at most once
+-- in this pass.
 -- @param target object being randomized
 -- @return drawn element or nil
 function Pool:_pickConstrained(target)
-	if not self:_ensureDrawable() then
-		return nil
-	end
-
-	-- Keep trying to draw until we exhaust our pool or find a working option
 	local choice = nil
-	local tried = {}
-	while #self.pool > 0 do
-		-- Always remove the element. We will add it back in if we want
-		choice = utils.randomElement(self.pool, {
-			consumesSelected = true,
-		})
-		-- Choice will always be non-nil here as we loop while we have items
-		-- If we pass teh constraint, we're done
+	-- Get indexes of all items to try in a list we can modify as we try and fail to prevent
+	-- retyring the same index while not mutating the pool
+	local unpicked = self:_unpickedPoolIndexes()
+	local toRemove = {}
+	while #unpicked > 0 do
+		-- pick and consume a random index and get the pool item for it
+		local poolIndex = utils.randomElement(unpicked, { consumesSelected = true })
+		choice = self.pool[poolIndex]
+
+		-- See if it passes the contraint
 		if self.constraintFn(target, choice) then
+			-- If we consume selected, add it to the list to remove and break which will handle
+			-- cleanup of the attempted lists appropriately
+			if self.consumesSelected then
+				table.insert(toRemove, poolIndex)
+			end
 			break
-		else
-			-- if it doesn't pass, add it to our tried list
-			table.insert(tried, choice)
+		end
+		choice = nil
+
+		-- If it does not, add it to the list of items to move if we are removing failures
+		if self.constraintRemovesFailures then
+			table.insert(toRemove, poolIndex)
 		end
 	end
 
-	-- Reapply the items to the pool if needed before returning
-	local dest = self.constraintRemovesFailures and self.used or self.pool
-	for _, item in ipairs(tried) do
-		table.insert(dest, item)
+	-- If we have any items to remove, remove them at the end to reduce churn
+	if #toRemove > 0 then
+		self:removeIndexesHighToLow(toRemove)
 	end
-
-	-- if its consumable, add it to the used pile
-	if choice ~= nil and self.constraintFn(target, choice) then
-		if self.consumesSelected then
-			table.insert(self.used, choice)
-		else
-			table.insert(self.pool, choice)
-		end
-		return choice
-	end
-	return nil
+	return choice
 end
 
 --- draw one random element that passes the pools constraintFn for target
@@ -188,15 +208,26 @@ end
 -- @param target object being randomized
 -- @return drawn element or nil when nothing passes
 function Pool:drawWithConstraint(target)
+	-- If there is no constraint, just draw
 	if self.constraintFn == nil then
 		return self:draw()
 	end
 
+	-- Ensure we can draw from the pool/its regenerated if empty
+	if not self:_ensureDrawable() then
+		return nil
+	end
+
+	-- Try to find a valid contrained item
 	local element = self:_pickConstrained(target)
-	if element == nil and self.autoRegenerates then
+
+	-- If it fails, we have used items and we are set to autoregenerate, try once more
+	if element == nil and self.autoRegenerates and #self.used > 0 then
 		self:regenerate()
 		element = self:_pickConstrained(target)
 	end
+
+	-- If we failed error if set to
 	if element == nil and self.errorOnExhausted then
 		error("Pool constraint could not be satisfied")
 	end

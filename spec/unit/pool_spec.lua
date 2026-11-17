@@ -190,6 +190,15 @@ describe("Pool", function()
 	end)
 
 	describe("drawWithConstraint", function()
+		it("should handle nil constraintFn", function()
+			randomizer.setSeed(1)
+			local pool = randomizer.pool({ 9, 10 })
+			local drawn = pool:drawWithConstraint({ id = 1 })
+			assert.is_true(drawn == 9 or drawn == 10)
+			assert.are.equal(2, pool:remainingCount())
+			assert.are.equal(0, pool:usedCount())
+		end)
+
 		it("should draw only values that pass constraintFn without removing rejected options", function()
 			randomizer.setSeed(42)
 			local target = { banned = "B" }
@@ -203,6 +212,7 @@ describe("Pool", function()
 
 			assert.is_true(drawn == "A" or drawn == "C")
 			assert.are.equal(3, pool:remainingCount())
+			assert.are.same({ "A", "B", "C" }, pool.pool)
 		end)
 
 		it("should drop constraint failures from the pool when constraintRemovesFailures is true", function()
@@ -223,15 +233,6 @@ describe("Pool", function()
 			for _, item in ipairs(pool.pool) do
 				assert.are_not.equal("B", item)
 			end
-		end)
-
-		it("should handle nil constraintFn", function()
-			randomizer.setSeed(1)
-			local pool = randomizer.pool({ 9, 10 })
-			local drawn = pool:drawWithConstraint({ id = 1 })
-			assert.is_true(drawn == 9 or drawn == 10)
-			assert.are.equal(2, pool:remainingCount())
-			assert.are.equal(0, pool:usedCount())
 		end)
 
 		it("should return nil or error when the pool is empty after constraint failures based on errorOnExhausted", function()
@@ -268,9 +269,7 @@ describe("Pool", function()
 			assert.are.equal(3, drawn)
 			assert.are.equal(2, pool:remainingCount())
 			assert.are.equal(1, pool:usedCount())
-			for _, value in ipairs(pool.pool) do
-				assert.are_not.equal(3, value)
-			end
+			assert.are.same({ 1, 2 }, pool.pool)
 		end)
 
 		it("should return rejected draws to the used pool if constraintRemovesFailures is true", function()
@@ -367,6 +366,62 @@ describe("Pool", function()
 			assert.is_nil(pool:drawWithConstraint({ id = 1 }))
 			assert.are.equal(0, pool:remainingCount())
 			assert.are.equal(1, pool:usedCount())
+		end)
+
+		it("should leave the working pool in original order when rejected items are not removed", function()
+			randomizer.setSeed(42)
+			local pool = randomizer.pool({ 10, 20, 30, 40 }, {
+				consumesSelected = true,
+				constraintRemovesFailures = false,
+				constraintFn = function(_, value)
+					return value == 40
+				end,
+			})
+
+			assert.are.equal(40, pool:drawWithConstraint({ id = 1 }))
+			assert.are.same({ 10, 20, 30 }, pool.pool)
+		end)
+
+		it("should leave survivors in original relative order when constraintRemovesFailures drops failures", function()
+			randomizer.setSeed(3)
+			local pool = randomizer.pool({ 1, 2, 3, 4 }, {
+				consumesSelected = false,
+				constraintRemovesFailures = true,
+				constraintFn = function(_, value)
+					return value >= 3
+				end,
+			})
+
+			local drawn = pool:drawWithConstraint({ id = 1 })
+			assert.is_true(drawn == 3 or drawn == 4)
+			assert.are.same({ 3, 4 }, pool.pool)
+		end)
+
+		it("should not reshuffle the working pool when every candidate fails the constraint", function()
+			local pool = randomizer.pool({ 5, 6, 7 }, {
+				consumesSelected = true,
+				constraintRemovesFailures = false,
+				constraintFn = function()
+					return false
+				end,
+			})
+
+			assert.is_nil(pool:drawWithConstraint({ id = 1 }))
+			assert.are.same({ 5, 6, 7 }, pool.pool)
+		end)
+
+		it("should remove the winning slot by index so duplicate values keep correct pool order", function()
+			randomizer.setSeed(42)
+			local pool = randomizer.pool({ 10, 99, 10, 20 }, {
+				consumesSelected = true,
+				constraintRemovesFailures = false,
+				constraintFn = function(_, value)
+					return value == 99
+				end,
+			})
+
+			assert.are.equal(99, pool:drawWithConstraint({ id = 1 }))
+			assert.are.same({ 10, 10, 20 }, pool.pool)
 		end)
 	end)
 
