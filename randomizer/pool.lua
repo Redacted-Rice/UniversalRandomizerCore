@@ -4,7 +4,7 @@
 
 local utils = require("randomizer.utils")
 
---- Pool with working and used array tables for consumable draws.
+--- Pool with working (`pool`) and `used` array tables for stateful and constrained draws.
 local Pool = {}
 Pool.__index = Pool
 
@@ -81,7 +81,7 @@ function Pool:_setPoolOptions(poolOptions)
 end
 
 --- whether draw would succeed without treating exhaustion as an error
--- with regenerate, true when the working pool is empty but used still has items
+-- with autoRegenerates, true when the working pool is empty but used still has items
 -- @return boolean
 function Pool:canDraw()
 	if #self.pool > 0 then
@@ -90,7 +90,7 @@ function Pool:canDraw()
 	return self.consumesSelected and self.autoRegenerates and #self.used > 0
 end
 
---- Regenereates the pool from the used pile
+--- Refills the working pool from the used pile
 function Pool:regenerate()
 	if #self.pool <= 0 then
 		self.pool = self.used
@@ -102,7 +102,7 @@ function Pool:regenerate()
 	self.used = {}
 end
 
---- refill working pool from used when regenerate allows another draw
+--- refill working pool from used when autoRegenerates allows another draw
 -- @return true when the pool can take another draw
 function Pool:_ensureDrawable()
 	if #self.pool > 0 then
@@ -116,13 +116,13 @@ function Pool:_ensureDrawable()
 		return false
 	end
 	if self.consumesSelected and not self.autoRegenerates then
-		error("Pool depleted and regenerate is false")
+		error("Pool depleted and autoRegenerates is false")
 	end
 	error("Pool state items unexpectedly exhausted!")
 end
 
 --- draw one random element from the pool
--- non consumable pools sample with replacement. consumable pools move choices to used.
+-- when consumesSelected is false, sample with replacement; when true, move choices to used.
 -- exhaustion behavior follows self.errorOnExhausted
 -- @return drawn element or nil
 function Pool:draw()
@@ -130,7 +130,7 @@ function Pool:draw()
 		return nil
 	end
 
-	-- Choose a random element. We just use our set options so we can pass ourselfs
+	-- Pass self as drawOptions so consumesSelected is honored without a temp options table
 	-- instead of making a temp table
 	local choice = utils.randomElement(self.pool, self)
 	if self.consumesSelected and choice ~= nil then
@@ -257,13 +257,13 @@ function Pool:removeFromPool(value, matcherFn, removeFromUsed)
 end
 
 --- count of values in the working pool only
--- does not include used even when regenerate would make the pool drawable via canDraw
+-- does not include used even when autoRegenerates would make the pool drawable via canDraw
 -- @return number of items in the working pool array
 function Pool:remainingCount()
 	return #self.pool
 end
 
---- count of values in the used pile (consumable draws only)
+--- count of values in the used pile (consumesSelected draws and constraintRemovesFailures rejects)
 -- @return number of items in the used array
 function Pool:usedCount()
 	return #self.used

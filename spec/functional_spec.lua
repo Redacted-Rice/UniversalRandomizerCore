@@ -106,10 +106,13 @@ describe("Functional Tests - Typical Use Cases", function()
 
 	describe("Use Case 2b: Stateful pool for trial and error draws", function()
 		it("should draw a shape that passes a filter via drawWithConstraint", function()
+			randomizer.setSeed(11)
+
 			local pool = randomizer.pool({ "small", "medium", "large" }, {
 				consumesSelected = true,
 				autoRegenerates = true,
 				errorOnExhausted = false,
+				constraintRemovesFailures = true,
 				constraintFn = function(_, candidate)
 					return candidate ~= "large"
 				end,
@@ -117,6 +120,10 @@ describe("Functional Tests - Typical Use Cases", function()
 			local accepted = pool:drawWithConstraint({ id = 1 })
 
 			assert.is_true(accepted == "small" or accepted == "medium")
+			-- Failed trials leave the working pool when constraintRemovesFailures is true
+			for _, value in ipairs(pool.pool) do
+				assert.are_not.equal("large", value)
+			end
 		end)
 	end)
 
