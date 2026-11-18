@@ -199,6 +199,18 @@ describe("Pool", function()
 			assert.are.equal(0, pool:usedCount())
 		end)
 
+		it("should accept nil or omitted target when constraintFn ignores target", function()
+			randomizer.setSeed(42)
+			local pool = randomizer.pool({ 1, 2, 3 }, {
+				constraintFn = function(_, value)
+					return value == 3
+				end,
+			})
+			assert.are.equal(3, pool:drawWithConstraint(nil))
+			pool:regenerate()
+			assert.are.equal(3, pool:drawWithConstraint())
+		end)
+
 		it("should draw only values that pass constraintFn without removing rejected options", function()
 			randomizer.setSeed(42)
 			local target = { banned = "B" }

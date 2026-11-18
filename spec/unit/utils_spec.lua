@@ -728,6 +728,44 @@ describe("Utils Module", function()
 		end)
 	end)
 
+	describe("filterArray and filterArrayInPlace", function()
+		it("should keep items matching a predicate function without mutating the source", function()
+			local src = { 1, 2, 3, 4 }
+			assert.are.same({ 2, 4 }, utils.filterArray(src, function(n)
+				return n % 2 == 0
+			end))
+			assert.are.same({ 1, 2, 3, 4 }, src)
+		end)
+
+		it("should keep items matching a string field name", function()
+			local first = { ok = true, v = 1 }
+			local second = { ok = false, v = 2 }
+			local third = { ok = true, v = 3 }
+			local src = { first, second, third }
+			assert.are.same({ first, third }, utils.filterArray(src, "ok"))
+		end)
+
+		it("should compact in place and preserve relative order of kept items", function()
+			local tbl = { 10, 20, 30, 40 }
+			utils.filterArrayInPlace(tbl, function(n)
+				return n > 15
+			end)
+			assert.are.same({ 20, 30, 40 }, tbl)
+			assert.are.equal(3, #tbl)
+		end)
+
+		it("should filter in place by field name", function()
+			local keepA = { keep = true, v = 1 }
+			local drop = { keep = false, v = 2 }
+			local keepB = { keep = true, v = 3 }
+			local tbl = { keepA, drop, keepB }
+			utils.filterArrayInPlace(tbl, "keep")
+			assert.are.equal(2, #tbl)
+			assert.are.equal(keepA, tbl[1])
+			assert.are.equal(keepB, tbl[2])
+		end)
+	end)
+
 	describe("Random Element", function()
 		it("should get random element from table", function()
 			local tbl = { 10, 20, 30 }

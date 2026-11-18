@@ -133,11 +133,11 @@ describe("KeyedPools", function()
 				assert.are.same(target, seenTarget)
 			end)
 
-			it("should use an empty target when drawFirstAvailable gets no target arg", function()
+			it("should pass nil target when drawFirstAvailable gets no target arg", function()
 				randomizer.setSeed(1)
 				local keyed = randomizer.KeyedPools.new({ k = { 1 } }, {})
 				local pool = keyed:get("k")
-				local seenTarget = nil
+				local seenTarget = "unset"
 				pool.constraintFn = function(target)
 					seenTarget = target
 					return true
@@ -147,8 +147,23 @@ describe("KeyedPools", function()
 
 				assert.are.equal("k", key)
 				assert.are.equal(1, value)
-				assert.is_true(type(seenTarget) == "table")
-				assert.is_nil(seenTarget.pick)
+				assert.is_nil(seenTarget)
+			end)
+
+			it("should pass nil target when drawFirstAvailable gets an explicit nil target", function()
+				randomizer.setSeed(1)
+				local keyed = randomizer.KeyedPools.new({ k = { 2 } }, {})
+				local seenTarget = "unset"
+				keyed:get("k").constraintFn = function(target)
+					seenTarget = target
+					return true
+				end
+
+				local value, key = keyed:drawFirstAvailable({ "k" }, nil)
+
+				assert.are.equal("k", key)
+				assert.are.equal(2, value)
+				assert.is_nil(seenTarget)
 			end)
 
 			it("should fall through to the next key when the first pool cannot satisfy the constraint", function()
