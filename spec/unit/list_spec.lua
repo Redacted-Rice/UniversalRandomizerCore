@@ -935,6 +935,25 @@ describe("List Module", function()
 			end)
 		end)
 
+		it("should assign nil when pool depletes and errorOnExhausted defaults false", function()
+			randomizer.setSeed(99)
+			local pool = randomizer.list({ 1, 2 })
+			local target = { { val = 0 }, { val = 0 }, { val = 0 } }
+			pool:useToRandomize(target, "val", { consumesSelected = true, autoRegenerates = false })
+
+			local nilCount = 0
+			local filledCount = 0
+			for _, item in ipairs(target) do
+				if item.val == nil then
+					nilCount = nilCount + 1
+				else
+					filledCount = filledCount + 1
+				end
+			end
+			assert.are.equal(1, nilCount)
+			assert.are.equal(2, filledCount)
+		end)
+
 		it("should regenerate when empty if regenerate=true", function()
 			randomizer.setSeed(7)
 			local pool = randomizer.list({ 1, 2 })

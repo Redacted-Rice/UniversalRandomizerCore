@@ -146,13 +146,13 @@ end
 
 --- draw from the first key in priority order that can still draw
 -- @param keys array of pool keys
--- @param target optional object passed to drawWithConstraint on each pool tried
+-- @param target optional object passed to drawWithConstraint on each pool tried (nil is allowed)
 -- @return drawn value and the key it came from, or nil and nil when nothing left
 function KeyedPools:drawFirstAvailable(keys, target)
 	for _, key in ipairs(keys) do
 		local pool = self:get(key)
 		if pool ~= nil and pool:canDraw() then
-			local value = pool:drawWithConstraint(target or {})
+			local value = pool:drawWithConstraint(target)
 			if value ~= nil then
 				return value, key
 			end

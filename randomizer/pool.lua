@@ -205,7 +205,7 @@ end
 
 --- draw one random element that passes the pools constraintFn for target
 -- rejected options stay in the working pool unless constraintRemovesFailures is true (see Pool.new)
--- @param target object being randomized
+-- @param target optional object being randomized (may be nil when constraintFn does not use it)
 -- @return drawn element or nil when nothing passes
 function Pool:drawWithConstraint(target)
 	-- If there is no constraint, just draw
